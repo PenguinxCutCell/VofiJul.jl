@@ -691,6 +691,12 @@ function vofi_order_dirs_4D(impl_func, par, x0::Vector{vofi_real}, h0, pdir, sdi
 
     mags = abs.(fgrad)
     order = sortperm(mags, rev = true)
+    if check_dir > 0
+        idx = findfirst(==(check_dir), order)
+        if idx !== nothing && idx != 1
+            order[1], order[idx] = order[idx], order[1]
+        end
+    end
     fill!(pdir, 0.0)
     fill!(sdir, 0.0)
     fill!(tdir, 0.0)

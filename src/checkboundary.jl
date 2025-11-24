@@ -263,15 +263,9 @@ function vofi_check_boundary_hypersurface(impl_func, par, x0::Vector{Float64}, h
     nz = ones(Int, 2)
     nw = ones(Int, 2)
     
-    sidedirx = [1.0, 0.0, 0.0, 0.0]
-    sidediry = [0.0, 1.0, 0.0, 0.0]
-    sidedirz = [0.0, 0.0, 1.0, 0.0]
-    sidedirw = [0.0, 0.0, 0.0, 1.0]
-    
     fcube = Array{Float64}(undef, 2, 2, 2)  # 8 vertices of a cube face
     x1 = Vector{Float64}(undef, 4)
-    check_dir = -1
-    
+ 
     # Check faces perpendicular to x-axis (i fixed)
     for i in 0:1
         if nx[i + 1] > 0
@@ -282,17 +276,10 @@ function vofi_check_boundary_hypersurface(impl_func, par, x0::Vector{Float64}, h
                     for jj in 0:1, kk in 0:1, ll in 0:1
                         fcube[jj + 1, kk + 1, ll + 1] = f0[i + 1, jj + 1, kk + 1, ll + 1]
                     end
-                    
-                    # Set position on the face
-                    x1[1] = x0[1] + i * h0[1]
-                    x1[2] = x0[2]
-                    x1[3] = x0[3]
-                    x1[4] = x0[4]
-                    
+                    x1[1] = x0[1] + i * h0[1]; x1[2] = x0[2]; x1[3] = x0[3]; x1[4] = x0[4]
                     # Check if this face has sign changes
                     if has_sign_change_3d(fcube)
-                        check_dir = 0
-                        break
+                        return 1
                     end
                 end
             end
@@ -309,14 +296,10 @@ function vofi_check_boundary_hypersurface(impl_func, par, x0::Vector{Float64}, h
                         fcube[ii + 1, kk + 1, ll + 1] = f0[ii + 1, j + 1, kk + 1, ll + 1]
                     end
                     
-                    x1[1] = x0[1]
-                    x1[2] = x0[2] + j * h0[2]
-                    x1[3] = x0[3]
-                    x1[4] = x0[4]
+                    x1[1] = x0[1]; x1[2] = x0[2] + j * h0[2]; x1[3] = x0[3]; x1[4] = x0[4]
                     
                     if has_sign_change_3d(fcube)
-                        check_dir = 0
-                        break
+                        return 2
                     end
                 end
             end
@@ -332,15 +315,9 @@ function vofi_check_boundary_hypersurface(impl_func, par, x0::Vector{Float64}, h
                     for ii in 0:1, jj in 0:1, ll in 0:1
                         fcube[ii + 1, jj + 1, ll + 1] = f0[ii + 1, jj + 1, k + 1, ll + 1]
                     end
-                    
-                    x1[1] = x0[1]
-                    x1[2] = x0[2]
-                    x1[3] = x0[3] + k * h0[3]
-                    x1[4] = x0[4]
-                    
+                    x1[1] = x0[1]; x1[2] = x0[2]; x1[3] = x0[3] + k * h0[3]; x1[4] = x0[4]
                     if has_sign_change_3d(fcube)
-                        check_dir = 0
-                        break
+                        return 3
                     end
                 end
             end
@@ -356,22 +333,16 @@ function vofi_check_boundary_hypersurface(impl_func, par, x0::Vector{Float64}, h
                     for ii in 0:1, jj in 0:1, kk in 0:1
                         fcube[ii + 1, jj + 1, kk + 1] = f0[ii + 1, jj + 1, kk + 1, l + 1]
                     end
-                    
-                    x1[1] = x0[1]
-                    x1[2] = x0[2]
-                    x1[3] = x0[3]
-                    x1[4] = x0[4] + l * h0[4]
-                    
+                    x1[1] = x0[1]; x1[2] = x0[2]; x1[3] = x0[3]; x1[4] = x0[4] + l * h0[4]
                     if has_sign_change_3d(fcube)
-                        check_dir = 0
-                        break
+                        return 4
                     end
                 end
             end
         end
     end
     
-    return check_dir
+    return -1
 end
 
 # Helper function to check if a 3D cube has sign changes
