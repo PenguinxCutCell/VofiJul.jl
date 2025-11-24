@@ -704,9 +704,11 @@ function vofi_order_dirs_4D(impl_func, par, x0::Vector{vofi_real}, h0, pdir, sdi
     reset_xfsp4d!(xfsp)
     vofi_populate_sector_volume_4D!(xfsp, impl_func, par, x0, hvec, pdir, sdir, tdir, qdir, f0, fth)
     vofi_populate_quaternary_edges_4D!(xfsp, impl_func, par, x0, hvec, pdir, sdir, tdir, qdir, f0, fth)
-    have = (hvec[1] + hvec[2] + hvec[3] + hvec[4]) / 4
-    curvature_est = fgradmod / max(have, EPS_NOT0)
-    npt = clamp(Int(ceil(4 + curvature_est)), 4, NGLM)
+    have = maximum(hvec)
+    Kappa = fgradmod / max(have, EPS_NOT0)
+    a0, a1, a2, a3 = 2.34607, 16.5515, -5.53054, 54.0866
+    npt_est = a0 + Kappa * (a1 + Kappa * (a2 + a3 * Kappa))
+    npt = clamp(Int(ceil(npt_est)), 4, NGLM)
     xfsp.ipt = npt
 
     return -1

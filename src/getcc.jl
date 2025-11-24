@@ -1,5 +1,11 @@
 function vofi_get_cc(impl_func, par, xin, h0, xex, nex, npt, nvis, ndim0)
-    xex .= 0
+    # Ensure we have enough slots for barycenter coords plus interface measure
+    nex_interface = length(nex) >= 2 ? nex[2] : 0
+    required_len = (ndim0 == 4 && nex_interface > 0) ? 5 : max(4, ndim0)
+    if length(xex) < required_len
+        resize!(xex, required_len)
+    end
+    fill!(xex, 0)
     x0 = @MVector zeros(vofi_real, NDIM)
     hvec = pad_to_ndim(h0)
     if ndim0 == 1
