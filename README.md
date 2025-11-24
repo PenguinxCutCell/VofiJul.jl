@@ -1,5 +1,8 @@
 # VofiJul.jl
 
+![CI](https://github.com/PenguinxCutCell/VofiJul.jl/actions/workflows/ci.yml/badge.svg)
+![Coverage](https://codecov.io/gh/PenguinxCutCell/VofiJul.jl/branch/main/graph/badge.svg)
+
 Julia port of the [VOFI](https://github.com/vofi-dev/vofi) library for initializing volume fractions from an analytic implicit surface `f(x,y,z)=0`. Cells are treated as line segments (1D), rectangles (2D), or cuboids (3D), the reference phase is in the region `f < 0`, and integration follows the original VOFI algorithms.
 
 ## Usage (preview)
