@@ -1,6 +1,21 @@
 using Test
 using VofiJul
 
+
+@testset "4D centroid extraction" begin
+    halfspace_sdf(x, _) = x[1]
+    xmin = fill(-0.5, 4)
+    h = fill(1.0, 4)
+    xex_centroid = zeros(Float64, 5)
+    cc = vofi_get_cc(halfspace_sdf, nothing, xmin, h, xex_centroid,
+                     [1, 0], zeros(Int, 4), [0, 0], 4)
+    @test cc ≈ 0.5 atol=1e-8
+    @test xex_centroid[1] ≈ -0.25 atol=1e-6
+    @test xex_centroid[2] ≈ 0.0 atol=1e-8
+    @test xex_centroid[3] ≈ 0.0 atol=1e-8
+    @test xex_centroid[4] ≈ 0.0 atol=1e-8
+end
+
 function integrate_4d(func; n = 8)
     h = 1.0 / n
     xmin = -0.5

@@ -154,10 +154,16 @@ function vofi_get_cc(impl_func, par, xin, h0, xex, nex, npt, nvis, ndim0)
             for k in 1:4
                 centroid[k] /= hypervolume
             end
-            for i in 1:4
-                xex[i] = x0_4[i] + centroid[1] * pdir[i] + centroid[2] * sdir[i] +
-                                 centroid[3] * tdir[i] + centroid[4] * qdir[i]
-            end
+            # centroid[1..4] are absolute coordinates in permuted (p,s,t,q) space
+            # Map them back to original coordinate indices
+            ax_p = axis_index(pdir)
+            ax_s = axis_index(sdir)
+            ax_t = axis_index(tdir)
+            ax_q = axis_index(qdir)
+            xex[ax_p] = centroid[1]
+            xex[ax_s] = centroid[2]
+            xex[ax_t] = centroid[3]
+            xex[ax_q] = centroid[4]
         end
         if nex[2] > 0
             xex[5] = centroid[5]
