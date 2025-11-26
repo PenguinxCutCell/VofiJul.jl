@@ -1,5 +1,22 @@
 function vofi_interface_surface(impl_func, par, x0, h0, xt, pdir, sdir, tdir,
                                 xhpn, xhpo, k, nexpt, ipf)
+    surfer, _ = vofi_interface_surface_with_centroid(impl_func, par, x0, h0, xt, pdir, sdir, tdir,
+                                                      xhpn, xhpo, k, nexpt, ipf, false)
+    return surfer
+end
+
+"""
+    vofi_interface_surface_with_centroid(impl_func, par, x0, h0, xt, pdir, sdir, tdir,
+                                         xhpn, xhpo, k, nexpt, ipf, compute_centroid)
+
+Compute interface surface area and optionally interface centroid in 3D.
+
+Returns `(surface_area, interface_centroid)` where `interface_centroid` is a 3-element array
+containing the (x, y, z) coordinates of the interface centroid if `compute_centroid` is true,
+or zeros otherwise.
+"""
+function vofi_interface_surface_with_centroid(impl_func, par, x0, h0, xt, pdir, sdir, tdir,
+                                xhpn, xhpo, k, nexpt, ipf, compute_centroid)
     xa = @MVector zeros(vofi_real, NDIM)
     xb = @MVector zeros(vofi_real, NDIM)
     xc = @MVector zeros(vofi_real, NDIM)
@@ -7,6 +24,11 @@ function vofi_interface_surface(impl_func, par, x0, h0, xt, pdir, sdir, tdir,
     x2 = @MVector zeros(vofi_real, NDIM)
     s0 = @MVector zeros(vofi_real, 4)
     surfer = 0.0
+    # Accumulators for centroid (in local (t, s, p) coordinates)
+    centroid_t = 0.0
+    centroid_s = 0.0
+    centroid_p = 0.0
+    
     hp = zero(vofi_real)
     for i in 1:NDIM
         hp += pdir[i] * h0[i]
@@ -75,7 +97,14 @@ function vofi_interface_surface(impl_func, par, x0, h0, xt, pdir, sdir, tdir,
             pts1_idx += 1
             pth1_idx += 1
             xc .= (t1, pts1[pts1_idx], pth1[pth1_idx])
-            surfer += vofi_triarea(xa, xb, xc)
+            tri_area = vofi_triarea(xa, xb, xc)
+            surfer += tri_area
+            if compute_centroid && tri_area > 0
+                # Triangle centroid is average of vertices
+                centroid_t += tri_area * (xa[1] + xb[1] + xc[1]) / 3
+                centroid_s += tri_area * (xa[2] + xb[2] + xc[2]) / 3
+                centroid_p += tri_area * (xa[3] + xb[3] + xc[3]) / 3
+            end
             if ipf > 0
                 tecplot_triangle(x0, pdir, sdir, tdir, xa, xb, xc, hp, f_sign)
             end
@@ -113,25 +142,49 @@ function vofi_interface_surface(impl_func, par, x0, h0, xt, pdir, sdir, tdir,
             xa .= (t1, pts1[psa_idx], pth1[pha_idx])
             xb .= (tc, sc, hc)
             xc .= (t1, pts1[pts1_idx], pth1[pth1_idx])
-            surfer += vofi_triarea(xa, xb, xc)
+            tri_area = vofi_triarea(xa, xb, xc)
+            surfer += tri_area
+            if compute_centroid && tri_area > 0
+                centroid_t += tri_area * (xa[1] + xb[1] + xc[1]) / 3
+                centroid_s += tri_area * (xa[2] + xb[2] + xc[2]) / 3
+                centroid_p += tri_area * (xa[3] + xb[3] + xc[3]) / 3
+            end
             if ipf > 0
                 tecplot_triangle(x0, pdir, sdir, tdir, xa, xb, xc, hp, f_sign)
             end
 
             xc .= (t2, pts2[psb_idx], pth2[phb_idx])
-            surfer += vofi_triarea(xa, xb, xc)
+            tri_area = vofi_triarea(xa, xb, xc)
+            surfer += tri_area
+            if compute_centroid && tri_area > 0
+                centroid_t += tri_area * (xa[1] + xb[1] + xc[1]) / 3
+                centroid_s += tri_area * (xa[2] + xb[2] + xc[2]) / 3
+                centroid_p += tri_area * (xa[3] + xb[3] + xc[3]) / 3
+            end
             if ipf > 0
                 tecplot_triangle(x0, pdir, sdir, tdir, xa, xb, xc, hp, f_sign)
             end
 
             xa .= (t2, pts2[pts2_idx], pth2[pth2_idx])
-            surfer += vofi_triarea(xa, xb, xc)
+            tri_area = vofi_triarea(xa, xb, xc)
+            surfer += tri_area
+            if compute_centroid && tri_area > 0
+                centroid_t += tri_area * (xa[1] + xb[1] + xc[1]) / 3
+                centroid_s += tri_area * (xa[2] + xb[2] + xc[2]) / 3
+                centroid_p += tri_area * (xa[3] + xb[3] + xc[3]) / 3
+            end
             if ipf > 0
                 tecplot_triangle(x0, pdir, sdir, tdir, xa, xb, xc, hp, f_sign)
             end
 
             xc .= (t1, pts1[pts1_idx], pth1[pth1_idx])
-            surfer += vofi_triarea(xa, xb, xc)
+            tri_area = vofi_triarea(xa, xb, xc)
+            surfer += tri_area
+            if compute_centroid && tri_area > 0
+                centroid_t += tri_area * (xa[1] + xb[1] + xc[1]) / 3
+                centroid_s += tri_area * (xa[2] + xb[2] + xc[2]) / 3
+                centroid_p += tri_area * (xa[3] + xb[3] + xc[3]) / 3
+            end
             if ipf > 0
                 tecplot_triangle(x0, pdir, sdir, tdir, xa, xb, xc, hp, f_sign)
             end
@@ -143,13 +196,31 @@ function vofi_interface_surface(impl_func, par, x0, h0, xt, pdir, sdir, tdir,
             pts1_idx += 1
             pth1_idx += 1
             xc .= (t1, pts1[pts1_idx], pth1[pth1_idx])
-            surfer += vofi_triarea(xa, xb, xc)
+            tri_area = vofi_triarea(xa, xb, xc)
+            surfer += tri_area
+            if compute_centroid && tri_area > 0
+                centroid_t += tri_area * (xa[1] + xb[1] + xc[1]) / 3
+                centroid_s += tri_area * (xa[2] + xb[2] + xc[2]) / 3
+                centroid_p += tri_area * (xa[3] + xb[3] + xc[3]) / 3
+            end
             if ipf > 0
                 tecplot_triangle(x0, pdir, sdir, tdir, xa, xb, xc, hp, f_sign)
             end
         end
     end
-    return surfer
+    
+    # Compute actual centroid coordinates
+    interface_centroid = zeros(vofi_real, NDIM)
+    if compute_centroid && surfer > 0
+        centroid_t /= surfer
+        centroid_s /= surfer
+        centroid_p /= surfer
+        for i in 1:NDIM
+            interface_centroid[i] = x0[i] + centroid_t * tdir[i] + centroid_s * sdir[i] + centroid_p * pdir[i]
+        end
+    end
+    
+    return surfer, interface_centroid
 end
 
 function vofi_end_points(impl_func, par, x0, h0, pdir, sdir, xhhp)

@@ -1,9 +1,29 @@
 function vofi_interface_length(impl_func, par, x0, h0, pdir, sdir, xhhp, ipf)
+    arc, _ = vofi_interface_length_with_centroid(impl_func, par, x0, h0, pdir, sdir, xhhp, ipf, false)
+    return arc
+end
+
+"""
+    vofi_interface_length_with_centroid(impl_func, par, x0, h0, pdir, sdir, xhhp, ipf, compute_centroid)
+
+Compute interface length and optionally interface centroid in 2D.
+
+Returns `(arc_length, interface_centroid)` where `interface_centroid` is a 2-element array
+containing the (x, y) coordinates of the interface centroid if `compute_centroid` is true,
+or zeros otherwise.
+"""
+function vofi_interface_length_with_centroid(impl_func, par, x0, h0, pdir, sdir, xhhp, ipf, compute_centroid)
     hp = zero(vofi_real)
+    hs = zero(vofi_real)
     for i in 1:NDIM
         hp += pdir[i] * h0[i]
+        hs += sdir[i] * h0[i]
     end
     arc = 0.0
+    # Accumulators for centroid: weighted sum of midpoint coordinates
+    centroid_p = 0.0  # Primary direction coordinate
+    centroid_s = 0.0  # Secondary direction coordinate
+    
     s0 = @MVector zeros(vofi_real, 4)
     s0[1] = hp
     nseg = xhhp[min(end, 2)].np0 > 0 ? 2 : (xhhp[1].np0 > 0 ? 1 : 0)
@@ -99,7 +119,23 @@ function vofi_interface_length(impl_func, par, x0, h0, pdir, sdir, xhhp, ipf)
             xc = xm
             d1 = (xl - xc)^2 + (hl - hc)^2
             d2 = (xr - xc)^2 + (hr - hc)^2
-            arc += sqrt(d1) + sqrt(d2)
+            seg_len1 = sqrt(d1)
+            seg_len2 = sqrt(d2)
+            arc += seg_len1 + seg_len2
+            
+            if compute_centroid
+                # Midpoint of first segment (from (xl, hl) to (xc, hc))
+                mid1_s = 0.5 * (xl + xc)
+                mid1_p = 0.5 * (hl + hc)
+                centroid_s += seg_len1 * mid1_s
+                centroid_p += seg_len1 * mid1_p
+                
+                # Midpoint of second segment (from (xc, hc) to (xr, hr))
+                mid2_s = 0.5 * (xc + xr)
+                mid2_p = 0.5 * (hc + hr)
+                centroid_s += seg_len2 * mid2_s
+                centroid_p += seg_len2 * mid2_p
+            end
 
             x0b = xm
             h0b = hm
@@ -113,5 +149,16 @@ function vofi_interface_length(impl_func, par, x0, h0, pdir, sdir, xhhp, ipf)
         end
     end
 
-    return arc
+    # Compute actual centroid coordinates
+    interface_centroid = zeros(vofi_real, 2)
+    if compute_centroid && arc > 0
+        # Convert from (p, s) coordinates to actual (x, y) coordinates
+        centroid_p /= arc
+        centroid_s /= arc
+        for i in eachindex(interface_centroid)
+            interface_centroid[i] = x0[i] + centroid_p * pdir[i] + centroid_s * sdir[i]
+        end
+    end
+
+    return arc, interface_centroid
 end
