@@ -1,19 +1,19 @@
 """
     vofi_get_interface_centroid(impl_func, par, xin, h0, ndim0)
 
-Compute interface centroid and interface measure (length in 2D, area in 3D) for a cell.
+Compute interface centroid and interface measure (length in 2D, area in 3D, volume in 4D) for a cell.
 
 # Arguments
 - `impl_func`: implicit function; returns `f(x, par)` (negative inside the reference phase)
 - `par`: user data passed to `impl_func` (or `nothing`)
 - `xin`: minimum corner of the cell
 - `h0`: cell edge lengths
-- `ndim0`: 1, 2, or 3 for the problem dimension
+- `ndim0`: 1, 2, 3, or 4 for the problem dimension
 
 # Returns
 A tuple `(interface_measure, interface_centroid)` where:
-- `interface_measure`: 0 for 1D (point), arc length for 2D, surface area for 3D
-- `interface_centroid`: position of the interface centroid (1D: interface point, 2D/3D: centroid coordinates)
+- `interface_measure`: 0 for 1D (point), arc length for 2D, surface area for 3D, hypervolume for 4D
+- `interface_centroid`: position of the interface centroid (1D: interface point, 2D/3D/4D: centroid coordinates)
 
 For cells that are fully inside (f < 0) or fully outside (f > 0), returns `(0.0, zeros(ndim0))`.
 
@@ -111,8 +111,41 @@ function vofi_get_interface_centroid(impl_func, par, xin, h0, ndim0)
         
         return (surface_area, interface_centroid)
         
+    elseif ndim0 == 4
+        # Use dynamic arrays for 4D (NDIM is 3; do not change it)
+        x0_4 = Vector{vofi_real}(undef, 4)
+        for i in 1:4
+            x0_4[i] = xin[i]
+        end
+        length(h0) >= 4 || throw(ArgumentError("h0 must provide 4 entries when ndim0 == 4"))
+        h4 = Vector{vofi_real}(undef, 4)
+        for i in 1:4
+            h4[i] = vofi_real(h0[i])
+        end
+        pdir = zeros(vofi_real, 4)
+        sdir = zeros(vofi_real, 4)
+        tdir = zeros(vofi_real, 4)
+        qdir = zeros(vofi_real, 4)
+        f04D = zeros(vofi_real, NSE, NSE, NSE, NSE)
+        xfsp = XFSP4D()
+
+        icc = vofi_order_dirs_4D(impl_func, par, x0_4, h4, pdir, sdir, tdir, qdir, f04D, xfsp)
+        if icc >= 0
+            # Cell is fully inside or fully outside - no interface
+            return (0.0, zeros(vofi_real, 4))
+        end
+
+        base = zeros(vofi_real, NSEG + 1)
+        nsub = vofi_get_limits_4D(impl_func, par, x0_4, h4, f04D, xfsp, base, pdir, sdir, tdir, qdir)
+        
+        # Compute interface volume and centroid using integration
+        interface_volume, interface_centroid = vofi_get_interface_volume_centroid_4D(
+            impl_func, par, x0_4, h4, base, pdir, sdir, tdir, qdir, nsub, xfsp.ipt)
+        
+        return (interface_volume, interface_centroid)
+        
     else
-        throw(ArgumentError("ndim0 must be 1, 2, or 3 for interface centroid computation"))
+        throw(ArgumentError("ndim0 must be 1, 2, 3, or 4 for interface centroid computation"))
     end
 end
 
@@ -289,4 +322,114 @@ function vofi_get_interface_area_centroid_3D(impl_func, par, x0, h0, base_ext, p
     end
     
     return total_area, interface_centroid
+end
+
+"""
+    vofi_get_interface_volume_centroid_4D(impl_func, par, x0, h0, base, pdir, sdir, tdir, qdir, nsub, nptmp)
+
+Compute interface volume and centroid for 4D case.
+The interface in 4D is a 3D hypersurface, so the "interface measure" is a 3D volume.
+"""
+function vofi_get_interface_volume_centroid_4D(impl_func, par, x0, h0, base, pdir, sdir, tdir, qdir, nsub, nptmp)
+    ax_p = axis_index(pdir)
+    ax_s = axis_index(sdir)
+    ax_t = axis_index(tdir)
+    ax_q = axis_index(qdir)
+    hp = axis_length(pdir, h0)
+    hs = axis_length(sdir, h0)
+    ht = axis_length(tdir, h0)
+    hq = axis_length(qdir, h0)
+    hm = maximum(h0)
+
+    # Build a 3D slice coordinate system
+    xin3 = Vector{vofi_real}(undef, NDIM)
+    xin3[1] = x0[ax_p]
+    xin3[2] = x0[ax_s]
+    xin3[3] = x0[ax_t]
+    h3 = Vector{vofi_real}(undef, NDIM)
+    h3[1] = hp
+    h3[2] = hs
+    h3[3] = ht
+
+    xbuf = similar(x0)
+    q_current = Ref(x0[ax_q])
+    
+    # Create a 3D slice function that evaluates the 4D function at a fixed q
+    slice_func = let impl_func = impl_func, par = par, x0 = x0,
+                     ax_p = ax_p, ax_s = ax_s, ax_t = ax_t, ax_q = ax_q,
+                     xbuf = xbuf, q_current = q_current
+        function (coords)
+            for i in 1:length(x0)
+                xbuf[i] = x0[i]
+            end
+            xbuf[ax_p] = coords[1]
+            xbuf[ax_s] = coords[2]
+            xbuf[ax_t] = coords[3]
+            xbuf[ax_q] = q_current[]
+            return call_integrand(impl_func, par, xbuf)
+        end
+    end
+
+    total_volume = 0.0
+    centroid_acc = zeros(vofi_real, 4)
+    q_origin = x0[ax_q]
+    max_nodes = NGLM
+
+    for ns in 1:nsub
+        dq = base[ns + 1] - base[ns]
+        if dq <= EPS_LOC
+            continue
+        end
+        mdpt = 0.5 * (base[ns + 1] + base[ns])
+        nquad = clamp(Int(floor(18 * dq / hm)) + 3, 3, 20)
+        if nptmp > 0
+            nquad = min(nquad, nptmp)
+        end
+        nquad = min(nquad, max_nodes)
+        nodes = gauss_legendre_nodes(nquad)
+        weights = gauss_legendre_weights(nquad)
+        
+        seg_vol = 0.0
+        seg_xp = seg_xs = seg_xt = seg_xq = 0.0
+        
+        for k in 1:nquad
+            xi = mdpt + 0.5 * dq * nodes[k]
+            xi = clamp(xi, 0.0, hq)
+            q_abs = q_origin + xi
+            q_current[] = q_abs
+            
+            # Get interface area and centroid for the 3D slice
+            surface_area, centroid3 = vofi_get_interface_centroid(slice_func, nothing, xin3, h3, 3)
+            
+            w = weights[k]
+            seg_vol += w * surface_area
+            
+            if surface_area > 0
+                # Accumulate weighted centroid contributions
+                seg_xp += w * surface_area * centroid3[1]
+                seg_xs += w * surface_area * centroid3[2]
+                seg_xt += w * surface_area * centroid3[3]
+                seg_xq += w * surface_area * q_abs
+            end
+        end
+        
+        factor = 0.5 * dq
+        total_volume += factor * seg_vol
+        centroid_acc[1] += factor * seg_xp
+        centroid_acc[2] += factor * seg_xs
+        centroid_acc[3] += factor * seg_xt
+        centroid_acc[4] += factor * seg_xq
+    end
+
+    # Normalize centroid and map back to original coordinate indices
+    interface_centroid = zeros(vofi_real, 4)
+    if total_volume > 0
+        centroid_acc ./= total_volume
+        interface_centroid[ax_p] = centroid_acc[1]
+        interface_centroid[ax_s] = centroid_acc[2]
+        interface_centroid[ax_t] = centroid_acc[3]
+        interface_centroid[ax_q] = centroid_acc[4]
+    end
+
+    return total_volume, interface_centroid
 end

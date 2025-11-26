@@ -132,4 +132,58 @@ using VofiJul
             @test global_centroid[2] ≈ 0.0 atol=0.02
         end
     end
+    
+    # Test 4D: Interface volume and centroid
+    @testset "4D interface centroid" begin
+        # Hyperplane x[1] = 0 (interface at x=0)
+        hyperplane_sdf(x, _) = x[1]
+        measure, centroid = vofi_get_interface_centroid(hyperplane_sdf, nothing, [-0.5, -0.5, -0.5, -0.5], [1.0, 1.0, 1.0, 1.0], 4)
+        @test measure ≈ 1.0 atol=1e-6  # Interface is a unit 3D cube
+        @test centroid[1] ≈ 0.0 atol=1e-6  # x-coordinate of interface
+        @test centroid[2] ≈ 0.0 atol=1e-6  # y-coordinate at center
+        @test centroid[3] ≈ 0.0 atol=1e-6  # z-coordinate at center
+        @test centroid[4] ≈ 0.0 atol=1e-6  # w-coordinate at center
+        
+        # Hyperplane x[2] = 0 (interface at y=0)
+        hyperplane_y_sdf(x, _) = x[2]
+        measure_y, centroid_y = vofi_get_interface_centroid(hyperplane_y_sdf, nothing, [-0.5, -0.5, -0.5, -0.5], [1.0, 1.0, 1.0, 1.0], 4)
+        @test measure_y ≈ 1.0 atol=1e-6  # Interface is a unit 3D cube
+        @test centroid_y[1] ≈ 0.0 atol=1e-6
+        @test centroid_y[2] ≈ 0.0 atol=1e-6
+        @test centroid_y[3] ≈ 0.0 atol=1e-6
+        @test centroid_y[4] ≈ 0.0 atol=1e-6
+        
+        # Hyperplane x[1] = 0.25 (offset interface)
+        offset_sdf(x, _) = x[1] - 0.25
+        measure_off, centroid_off = vofi_get_interface_centroid(offset_sdf, nothing, [0.0, 0.0, 0.0, 0.0], [1.0, 1.0, 1.0, 1.0], 4)
+        @test measure_off ≈ 1.0 atol=1e-6  # Interface is a unit 3D cube
+        @test centroid_off[1] ≈ 0.25 atol=1e-6  # x-coordinate of interface
+        @test centroid_off[2] ≈ 0.5 atol=1e-6   # y-coordinate at center
+        @test centroid_off[3] ≈ 0.5 atol=1e-6   # z-coordinate at center
+        @test centroid_off[4] ≈ 0.5 atol=1e-6   # w-coordinate at center
+        
+        # Hypersphere centered at origin
+        r = 0.4
+        hypersphere_sdf(x, _) = sqrt(x[1]^2 + x[2]^2 + x[3]^2 + x[4]^2) - r
+        # Test in a single cut cell containing part of the hypersphere surface
+        measure_h, centroid_h = vofi_get_interface_centroid(hypersphere_sdf, nothing, [0.0, 0.0, 0.0, 0.0], [0.5, 0.5, 0.5, 0.5], 4)
+        @test measure_h > 0  # Should have interface volume
+        # For hypersphere surface in first hyperoctant, centroid should be in first hyperoctant
+        @test centroid_h[1] >= 0
+        @test centroid_h[2] >= 0
+        @test centroid_h[3] >= 0
+        @test centroid_h[4] >= 0
+        
+        # No interface (fully inside)
+        neg_func4d(x, _) = -1.0
+        measure_neg, centroid_neg = vofi_get_interface_centroid(neg_func4d, nothing, [0.0, 0.0, 0.0, 0.0], [1.0, 1.0, 1.0, 1.0], 4)
+        @test measure_neg == 0.0
+        @test all(centroid_neg .== 0.0)
+        
+        # No interface (fully outside)
+        pos_func4d(x, _) = 1.0
+        measure_pos, centroid_pos = vofi_get_interface_centroid(pos_func4d, nothing, [0.0, 0.0, 0.0, 0.0], [1.0, 1.0, 1.0, 1.0], 4)
+        @test measure_pos == 0.0
+        @test all(centroid_pos .== 0.0)
+    end
 end
