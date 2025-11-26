@@ -257,7 +257,11 @@ function vofi_get_volume(impl_func, par, x0, h0, base_ext, pdir, sdir, tdir,
             continue
         end
 
-        nexpt = min(20, Int(floor(18 * dt / hm)) + 3)
+        dt_scaled = 18 * dt / hm
+        if !isfinite(dt_scaled) || dt_scaled < 0
+            dt_scaled = 0.0
+        end
+        nexpt = min(20, Int(floor(dt_scaled)) + 3)
         if 3 <= npt[4] <= 20
             nexpt = min(npt[4], nexpt)
         end
@@ -268,6 +272,10 @@ function vofi_get_volume(impl_func, par, x0, h0, base_ext, pdir, sdir, tdir,
         ptw_ext = gauss_legendre_weights(nexpt)
 
         quadv = quadp = quads = quadt = 0.0
+        xhpo1 = LenData()
+        xhpo2 = LenData()
+        xhpn_edge1 = LenData()
+        xhpn_edge2 = LenData()
         xmidt[1] = base_ext[nt]
         xmidt[nexpt + 2] = base_ext[nt + 1]
         for k in 1:nexpt
@@ -295,8 +303,6 @@ function vofi_get_volume(impl_func, par, x0, h0, base_ext, pdir, sdir, tdir,
                     end
                     nintmp = vofi_get_limits_edge_2D(impl_func, par, xedge, h0, xfs,
                                                      base_int, pdir, sdir, nsub_int)
-                    xhpo1 = LenData()
-                    xhpo2 = LenData()
                     vofi_edge_points(impl_func, par, xedge, h0, base_int, pdir, sdir,
                                      (xhpo1, xhpo2), (xhpn1.np0, xhpn2.np0), nintmp, nsect, ndire)
                     vofi_end_points(impl_func, par, xedge, h0, pdir, sdir, (xhpo1, xhpo2))
@@ -312,8 +318,6 @@ function vofi_get_volume(impl_func, par, x0, h0, base_ext, pdir, sdir, tdir,
                     end
                     nintmp = vofi_get_limits_edge_2D(impl_func, par, xedge, h0, xfs,
                                                      base_int, pdir, sdir, nsub_int)
-                    xhpn_edge1 = LenData()
-                    xhpn_edge2 = LenData()
                     vofi_edge_points(impl_func, par, xedge, h0, base_int, pdir, sdir,
                                      (xhpn_edge1, xhpn_edge2), (xhpo1.np0, xhpo2.np0), nintmp, nsect, ndire)
                     vofi_end_points(impl_func, par, xedge, h0, pdir, sdir, (xhpn_edge1, xhpn_edge2))

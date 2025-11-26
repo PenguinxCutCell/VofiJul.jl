@@ -24,6 +24,9 @@ function vofi_interface_surface(impl_func, par, x0, h0, xt, pdir, sdir, tdir,
         djl = djr = djc = -1
         nmin = min(npn, npo)
         nmax = max(npn, npo)
+        if nmin == 0
+            continue  # no points to connect on one of the sections
+        end
         if npn >= npo
             pts1 = xhpn[it0].xt0
             pth1 = xhpn[it0].ht0
