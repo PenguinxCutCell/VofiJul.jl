@@ -19,6 +19,7 @@ include("orderdirs.jl")
 include("getarclength.jl")
 include("tecplot.jl")
 include("getcc.jl")
+include("getinterfacecentroid.jl")
 
 export vofi_real, vofi_creal, vofi_int, vofi_cint, vofi_void_cptr,
        vofi_int_cpt, Integrand, MinData, DirData, LenData,
@@ -29,6 +30,6 @@ export vofi_real, vofi_creal, vofi_int, vofi_cint, vofi_void_cptr,
        @SHFT4, @CPSF,
        GL_MIN_ORDER, GL_MAX_ORDER,
        gauss_legendre_nodes, gauss_legendre_weights,
-       vofi_get_cell_type, vofi_get_cc
+       vofi_get_cell_type, vofi_get_cc, vofi_get_interface_centroid
 
 end # module

@@ -192,3 +192,9 @@ end
 @testset "vofi_get_cell_type 1D/2D/3D/4D" begin
     include("vofi_cell_type_tests.jl")
 end
+
+# -----------------------------
+
+@testset "Interface centroid" begin
+    include("vofi_interface_centroid_tests.jl")
+end
