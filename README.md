@@ -50,15 +50,6 @@ See `test/runtests.jl` for more examples, including Cartesian integrations in 1D
 - Same `impl_func`, `par`, `xin`, `h0`, `ndim0` as above.
 - Returns `1` if the cell is fully inside (f < 0), `0` if fully outside, `-1` if cut.
 
-`vofi_interface_centroid(impl_func, par, xin, h0, ndim0; tol=1e-10, max_iter=50)`
-- `impl_func`: implicit function; returns `f(x, par)` (negative inside the reference phase).
-- `par`: user data passed to `impl_func` (or `nothing`).
-- `xin`: minimum corner of the cell.
-- `h0`: cell edge lengths.
-- `ndim0`: 1, 2, or 3 for the problem dimension.
-- `tol`: tolerance for the 1D root-finder along the estimated normal (default `1e-10`).
-- `max_iter`: maximum iterations for the bisection root-finder (default `50`).
-
 
 ## Installation
 
