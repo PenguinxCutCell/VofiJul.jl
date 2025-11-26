@@ -155,7 +155,7 @@ function vofi_interface_length_with_centroid(impl_func, par, x0, h0, pdir, sdir,
         # Convert from (p, s) coordinates to actual (x, y) coordinates
         centroid_p /= arc
         centroid_s /= arc
-        for i in 1:2
+        for i in eachindex(interface_centroid)
             interface_centroid[i] = x0[i] + centroid_p * pdir[i] + centroid_s * sdir[i]
         end
     end
