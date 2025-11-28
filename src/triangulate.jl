@@ -156,7 +156,7 @@ end
     vofi_interface_surface_and_centroid(impl_func, par, x0, h0, xt, pdir, sdir, tdir, xhpn, xhpo, k, nexpt, ipf)
 
 Compute both the interface surface area and its centroid using precomputed heights.
-Returns (surface_area, centroid_t, centroid_s, centroid_p) where the centroid is in local (t, s, p) coordinates.
+Returns `(surface_area, (centroid_t, centroid_s, centroid_p))` where the centroid tuple is in local (t, s, p) coordinates.
 """
 function vofi_interface_surface_and_centroid(impl_func, par, x0, h0, xt, pdir, sdir, tdir,
                                               xhpn, xhpo, k, nexpt, ipf)

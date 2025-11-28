@@ -7,7 +7,7 @@ end
     vofi_interface_length_and_centroid(impl_func, par, x0, h0, pdir, sdir, xhhp, ipf)
 
 Compute both the interface arc length and the interface centroid using precomputed heights.
-Returns (arc_length, centroid) where centroid is a vector in local (pdir, sdir) coordinates.
+Returns `(arc_length, (cent_p, cent_s))` where the centroid tuple is in local (pdir, sdir) coordinates.
 
 This is more robust than bisection-based methods as it uses the already computed height
 function values from the Gauss-Legendre integration.
@@ -116,8 +116,7 @@ function vofi_interface_length_and_centroid(impl_func, par, x0, h0, pdir, sdir, 
             xc = xm
             d1 = sqrt((xl - xc)^2 + (hl - hc)^2)
             d2 = sqrt((xr - xc)^2 + (hr - hc)^2)
-            seg_len = d1 + d2
-            arc += seg_len
+            arc += d1 + d2
             
             # Compute centroid contribution: midpoint of each segment weighted by segment length
             # Segment 1: from (hl, xl) to (hc, xc)
