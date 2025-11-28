@@ -6,7 +6,7 @@ Return the Gauss–Legendre nodes for the requested quadrature `order`
 C implementation in `vofi/include/vofi_GL_nodes.h`.
 """
 @inline function gauss_legendre_nodes(order::Integer)
-    @inbounds GL_MIN_ORDER <= order <= GL_MAX_ORDER ||
+    GL_MIN_ORDER <= order <= GL_MAX_ORDER ||
         throw(ArgumentError("order must be in $GL_MIN_ORDER:$GL_MAX_ORDER"))
     @inbounds return GL_NODE_TABLE[order - GL_MIN_ORDER + 1]
 end

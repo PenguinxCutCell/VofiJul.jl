@@ -5,7 +5,7 @@ Return the Gauss–Legendre weights for the requested quadrature `order`
 (`3 ≤ order ≤ 20`). Values copied from `vofi/include/vofi_GL_weights.h`.
 """
 @inline function gauss_legendre_weights(order::Integer)
-    @inbounds GL_MIN_ORDER <= order <= GL_MAX_ORDER ||
+    GL_MIN_ORDER <= order <= GL_MAX_ORDER ||
         throw(ArgumentError("order must be in $GL_MIN_ORDER:$GL_MAX_ORDER"))
     @inbounds return GL_WEIGHT_TABLE[order - GL_MIN_ORDER + 1]
 end
