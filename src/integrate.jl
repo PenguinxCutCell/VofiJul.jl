@@ -219,6 +219,10 @@ function vofi_get_volume(impl_func, par, x0, h0, base_ext, pdir, sdir, tdir,
     xmidt = @MVector zeros(vofi_real, NGLM + 2)
     volume = 0.0
     surfer = 0.0
+    # Accumulators for interface centroid (weighted by surface area, in local coords)
+    iface_cent_t = 0.0
+    iface_cent_s = 0.0
+    iface_cent_p = 0.0
     hp = hs = ht = 0.0
     for i in 1:NDIM
         hp += pdir[i] * h0[i]
@@ -307,8 +311,12 @@ function vofi_get_volume(impl_func, par, x0, h0, base_ext, pdir, sdir, tdir,
                                      (xhpo1, xhpo2), (xhpn1.np0, xhpn2.np0), nintmp, nsect, ndire)
                     vofi_end_points(impl_func, par, xedge, h0, pdir, sdir, (xhpo1, xhpo2))
                 elseif k > 1 && k < nexpt
-                    surfer += vofi_interface_surface(impl_func, par, x0, h0, xmidt, pdir,
+                    surf_contrib, (ct, cs, cp) = vofi_interface_surface_and_centroid(impl_func, par, x0, h0, xmidt, pdir,
                                                      sdir, tdir, (xhpn1, xhpn2), (xhpo1, xhpo2), k, nexpt, nvis[2])
+                    surfer += surf_contrib
+                    iface_cent_t += ct
+                    iface_cent_s += cs
+                    iface_cent_p += cp
                     copy!(xhpo1, xhpn1)
                     copy!(xhpo2, xhpn2)
                 else
@@ -321,8 +329,12 @@ function vofi_get_volume(impl_func, par, x0, h0, base_ext, pdir, sdir, tdir,
                     vofi_edge_points(impl_func, par, xedge, h0, base_int, pdir, sdir,
                                      (xhpn_edge1, xhpn_edge2), (xhpo1.np0, xhpo2.np0), nintmp, nsect, ndire)
                     vofi_end_points(impl_func, par, xedge, h0, pdir, sdir, (xhpn_edge1, xhpn_edge2))
-                    surfer += vofi_interface_surface(impl_func, par, x0, h0, xmidt, pdir,
+                    surf_contrib, (ct, cs, cp) = vofi_interface_surface_and_centroid(impl_func, par, x0, h0, xmidt, pdir,
                                                      sdir, tdir, (xhpn_edge1, xhpn_edge2), (xhpo1, xhpo2), k + 1, nexpt, nvis[2])
+                    surfer += surf_contrib
+                    iface_cent_t += ct
+                    iface_cent_s += cs
+                    iface_cent_p += cp
                 end
             end
             quadv += ptw_ext[k] * area
@@ -343,6 +355,16 @@ function vofi_get_volume(impl_func, par, x0, h0, base_ext, pdir, sdir, tdir,
     centroid[2] = xs
     centroid[3] = xt
     centroid[4] = surfer
+    # Store normalized interface centroid in elements 5-7 (local coords: t, s, p)
+    if length(centroid) >= 7 && surfer > EPS_NOT0
+        centroid[5] = iface_cent_t / surfer  # t-coordinate
+        centroid[6] = iface_cent_s / surfer  # s-coordinate
+        centroid[7] = iface_cent_p / surfer  # p-coordinate (height)
+    elseif length(centroid) >= 7
+        centroid[5] = 0.0
+        centroid[6] = 0.0
+        centroid[7] = 0.0
+    end
     return volume
 end
 
@@ -367,14 +389,18 @@ function vofi_get_hypervolume(impl_func, par, x0, h0, base, pdir, sdir, tdir, qd
     h3[1] = hp
     h3[2] = hs
     h3[3] = ht
-    xex3 = zeros(vofi_real, NDIM + 1)
+    # Extend xex3 to receive interface centroid: vol_centroid(3) + surface(1) + iface_centroid(3)
+    xex3 = zeros(vofi_real, 7)
     nex_slice = zeros(Int, 2)
     want_centroid = nex[1] > 0
     want_surface = (length(nex) >= 2) && nex[2] > 0
+    want_iface_centroid = want_surface && nex[2] > 1
     if want_centroid
         nex_slice[1] = 1
     end
-    if want_surface
+    if want_iface_centroid
+        nex_slice[2] = 2  # Request interface centroid from 3D slices
+    elseif want_surface
         nex_slice[2] = 1
     end
     nvis_slice = zeros(Int, 2)
@@ -399,6 +425,8 @@ function vofi_get_hypervolume(impl_func, par, x0, h0, base, pdir, sdir, tdir, qd
     hypervolume = 0.0
     xp_acc = xs_acc = xt_acc = xq_acc = 0.0
     surface_acc = 0.0
+    # Accumulators for interface centroid (weighted by surface area)
+    iface_xp_acc = iface_xs_acc = iface_xt_acc = iface_xq_acc = 0.0
     q_origin = x0[ax_q]
     max_nodes = NGLM
 
@@ -419,6 +447,7 @@ function vofi_get_hypervolume(impl_func, par, x0, h0, base, pdir, sdir, tdir, qd
         nodes = gauss_legendre_nodes(nquad)
         weights = gauss_legendre_weights(nquad)
         seg_vol = seg_xp = seg_xs = seg_xt = seg_xq = seg_surface = 0.0
+        seg_iface_xp = seg_iface_xs = seg_iface_xt = seg_iface_xq = 0.0
         for k in 1:nquad
             xi = mdpt + 0.5 * dq * nodes[k]
             xi = clamp(xi, 0.0, hq)
@@ -436,7 +465,15 @@ function vofi_get_hypervolume(impl_func, par, x0, h0, base, pdir, sdir, tdir, qd
                 seg_xq += w * vol3 * q_abs
             end
             if want_surface && nex_slice[2] > 0
-                seg_surface += w * xex3[end]
+                slice_surf = xex3[4]
+                seg_surface += w * slice_surf
+                # Accumulate interface centroid weighted by surface area
+                if want_iface_centroid && slice_surf > 0
+                    seg_iface_xp += w * slice_surf * xex3[5]
+                    seg_iface_xs += w * slice_surf * xex3[6]
+                    seg_iface_xt += w * slice_surf * xex3[7]
+                    seg_iface_xq += w * slice_surf * q_abs
+                end
             end
         end
         factor = 0.5 * dq
@@ -450,6 +487,12 @@ function vofi_get_hypervolume(impl_func, par, x0, h0, base, pdir, sdir, tdir, qd
         if want_surface
             surface_acc += factor * seg_surface
         end
+        if want_iface_centroid
+            iface_xp_acc += factor * seg_iface_xp
+            iface_xs_acc += factor * seg_iface_xs
+            iface_xt_acc += factor * seg_iface_xt
+            iface_xq_acc += factor * seg_iface_xq
+        end
     end
 
     centroid[1] = xp_acc
@@ -457,5 +500,17 @@ function vofi_get_hypervolume(impl_func, par, x0, h0, base, pdir, sdir, tdir, qd
     centroid[3] = xt_acc
     centroid[4] = xq_acc
     centroid[5] = surface_acc
+    # Store normalized interface centroid in elements 6-9 if requested
+    if length(centroid) >= 9 && surface_acc > EPS_NOT0
+        centroid[6] = iface_xp_acc / surface_acc
+        centroid[7] = iface_xs_acc / surface_acc
+        centroid[8] = iface_xt_acc / surface_acc
+        centroid[9] = iface_xq_acc / surface_acc
+    elseif length(centroid) >= 9
+        centroid[6] = 0.0
+        centroid[7] = 0.0
+        centroid[8] = 0.0
+        centroid[9] = 0.0
+    end
     return hypervolume
 end

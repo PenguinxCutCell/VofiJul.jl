@@ -1,9 +1,26 @@
 function vofi_interface_length(impl_func, par, x0, h0, pdir, sdir, xhhp, ipf)
+    arc, _ = vofi_interface_length_and_centroid(impl_func, par, x0, h0, pdir, sdir, xhhp, ipf)
+    return arc
+end
+
+"""
+    vofi_interface_length_and_centroid(impl_func, par, x0, h0, pdir, sdir, xhhp, ipf)
+
+Compute both the interface arc length and the interface centroid using precomputed heights.
+Returns (arc_length, centroid) where centroid is a vector in local (pdir, sdir) coordinates.
+
+This is more robust than bisection-based methods as it uses the already computed height
+function values from the Gauss-Legendre integration.
+"""
+function vofi_interface_length_and_centroid(impl_func, par, x0, h0, pdir, sdir, xhhp, ipf)
     hp = zero(vofi_real)
     for i in 1:NDIM
         hp += pdir[i] * h0[i]
     end
     arc = 0.0
+    # Accumulators for centroid computation (in local pdir, sdir coordinates)
+    cent_p = 0.0  # weighted sum of p-coordinate (height direction)
+    cent_s = 0.0  # weighted sum of s-coordinate (secondary direction)
     s0 = @MVector zeros(vofi_real, 4)
     s0[1] = hp
     nseg = xhhp[min(end, 2)].np0 > 0 ? 2 : (xhhp[1].np0 > 0 ? 1 : 0)
@@ -97,9 +114,23 @@ function vofi_interface_length(impl_func, par, x0, h0, pdir, sdir, xhhp, ipf)
             hsum = hl + hr
             hc = 0.5 * hsum + sqrt3 / 3.0 * (2 * hm - hsum)
             xc = xm
-            d1 = (xl - xc)^2 + (hl - hc)^2
-            d2 = (xr - xc)^2 + (hr - hc)^2
-            arc += sqrt(d1) + sqrt(d2)
+            d1 = sqrt((xl - xc)^2 + (hl - hc)^2)
+            d2 = sqrt((xr - xc)^2 + (hr - hc)^2)
+            seg_len = d1 + d2
+            arc += seg_len
+            
+            # Compute centroid contribution: midpoint of each segment weighted by segment length
+            # Segment 1: from (hl, xl) to (hc, xc)
+            mid_p1 = 0.5 * (hl + hc)
+            mid_s1 = 0.5 * (xl + xc)
+            cent_p += d1 * mid_p1
+            cent_s += d1 * mid_s1
+            
+            # Segment 2: from (hc, xc) to (hr, xr)
+            mid_p2 = 0.5 * (hc + hr)
+            mid_s2 = 0.5 * (xc + xr)
+            cent_p += d2 * mid_p2
+            cent_s += d2 * mid_s2
 
             x0b = xm
             h0b = hm
@@ -113,5 +144,15 @@ function vofi_interface_length(impl_func, par, x0, h0, pdir, sdir, xhhp, ipf)
         end
     end
 
-    return arc
+    # Normalize the centroid by total arc length
+    if arc > EPS_NOT0
+        cent_p /= arc
+        cent_s /= arc
+    else
+        # Fallback: no interface or very small interface
+        cent_p = 0.0
+        cent_s = 0.0
+    end
+    
+    return arc, (cent_p, cent_s)
 end
