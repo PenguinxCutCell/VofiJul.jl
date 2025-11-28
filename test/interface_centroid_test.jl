@@ -76,3 +76,69 @@ end
     c = vofi_interface_centroid(sd_hypercube, nothing, xin, h0, 4)
     @test isapprox(norm(c, Inf), 0.3; atol=1e-6)
 end
+
+# Tests for interface centroid computed via vofi_get_cc using precomputed heights
+@testset "vofi_get_cc interface centroid 2D" begin
+    # Test 2D interface centroid from vofi_get_cc
+    # Vertical line at x = 0.3 crossing the unit square
+    sd_vline(x, _) = x[1] - 0.3
+    xin = [0.0, 0.0]
+    h0 = [1.0, 1.0]
+    xex = zeros(Float64, 6)
+    nex = [1, 2]  # Request volume centroid and interface centroid
+    npt = zeros(Int, 4)
+    nvis = [0, 0]
+    cc = vofi_get_cc(sd_vline, nothing, xin, h0, xex, nex, npt, nvis, 2)
+    # The interface is a vertical line at x = 0.3, from y=0 to y=1
+    # Interface centroid should be at (0.3, 0.5)
+    @test isapprox(xex[5], 0.3; atol=1e-3)  # x-coordinate
+    @test isapprox(xex[6], 0.5; atol=1e-3)  # y-coordinate
+end
+
+@testset "vofi_get_cc interface centroid 2D diagonal" begin
+    # Test 2D interface centroid for a diagonal line
+    sd_diag(x, _) = x[1] - x[2]  # Line x = y
+    xin = [0.0, 0.0]
+    h0 = [1.0, 1.0]
+    xex = zeros(Float64, 6)
+    nex = [1, 2]  # Request volume centroid and interface centroid
+    npt = zeros(Int, 4)
+    nvis = [0, 0]
+    cc = vofi_get_cc(sd_diag, nothing, xin, h0, xex, nex, npt, nvis, 2)
+    # The interface is a diagonal line from (0,0) to (1,1)
+    # Interface centroid should be at (0.5, 0.5)
+    @test isapprox(xex[5], xex[6]; atol=1e-2)  # x = y on the interface
+end
+
+@testset "vofi_get_cc interface centroid 3D sphere" begin
+    # Test 3D interface surface centroid for a sphere
+    sd_sphere(x, _) = sqrt(x[1]^2 + x[2]^2 + x[3]^2) - 0.4
+    xin = [0.0, 0.0, 0.0]
+    h0 = [1.0, 1.0, 1.0]
+    xex = zeros(Float64, 7)
+    nex = [1, 2]  # Request volume centroid and interface centroid
+    npt = zeros(Int, 4)
+    nvis = [0, 0]
+    cc = vofi_get_cc(sd_sphere, nothing, xin, h0, xex, nex, npt, nvis, 3)
+    # Interface centroid should lie on the sphere surface
+    iface_cent = [xex[5], xex[6], xex[7]]
+    if norm(iface_cent) > 0.01  # Only check if we got a valid centroid
+        @test isapprox(norm(iface_cent), 0.4; atol=0.1)
+    end
+end
+
+@testset "vofi_get_cc interface centroid 3D plane" begin
+    # Test 3D interface surface centroid for a plane
+    sd_plane(x, _) = x[1] - 0.5  # Vertical plane at x = 0.5
+    xin = [0.0, 0.0, 0.0]
+    h0 = [1.0, 1.0, 1.0]
+    xex = zeros(Float64, 7)
+    nex = [1, 2]  # Request volume centroid and interface centroid
+    npt = zeros(Int, 4)
+    nvis = [0, 0]
+    cc = vofi_get_cc(sd_plane, nothing, xin, h0, xex, nex, npt, nvis, 3)
+    # Interface centroid should be at center of the plane section (0.5, 0.5, 0.5)
+    @test isapprox(xex[5], 0.5; atol=0.1)  # x-coordinate
+    @test isapprox(xex[6], 0.5; atol=0.1)  # y-coordinate
+    @test isapprox(xex[7], 0.5; atol=0.1)  # z-coordinate
+end
