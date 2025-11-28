@@ -196,3 +196,6 @@ end
 @testset "vofi_interface_centroid tests" begin
     include("interface_centroid_test.jl")
 end
+
+# Threaded tests
+include("threaded_test.jl")

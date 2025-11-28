@@ -185,8 +185,35 @@ Base.copy!(dest::MinData4D, src::MinData4D) = begin
 end
 
 @inline function call_integrand(func::Integrand, par, coords::AbstractVector)
-    if par === nothing && applicable(func, coords)
+    @inbounds if par === nothing && applicable(func, coords)
         return func(coords)
     end
     return func(coords, par)
+end
+
+# Threaded computation support
+"""
+    ThreadedIntegrationResult{T}
+
+A structure to accumulate results from threaded integration.
+"""
+mutable struct ThreadedIntegrationResult{T<:Real}
+    value::T
+    lock::ReentrantLock
+    ThreadedIntegrationResult{T}() where {T} = new{T}(zero(T), ReentrantLock())
+end
+
+"""
+    atomic_add!(result::ThreadedIntegrationResult, value)
+
+Thread-safe addition to a ThreadedIntegrationResult.
+"""
+@inline function atomic_add!(result::ThreadedIntegrationResult{T}, value::T) where {T}
+    lock(result.lock)
+    try
+        result.value += value
+    finally
+        unlock(result.lock)
+    end
+    return nothing
 end

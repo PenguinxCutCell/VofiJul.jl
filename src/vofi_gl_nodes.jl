@@ -5,10 +5,10 @@ Return the Gauss–Legendre nodes for the requested quadrature `order`
 (`3 ≤ order ≤ 20`). The numeric values come directly from the original
 C implementation in `vofi/include/vofi_GL_nodes.h`.
 """
-function gauss_legendre_nodes(order::Integer)
-    GL_MIN_ORDER <= order <= GL_MAX_ORDER ||
+@inline function gauss_legendre_nodes(order::Integer)
+    @inbounds GL_MIN_ORDER <= order <= GL_MAX_ORDER ||
         throw(ArgumentError("order must be in $GL_MIN_ORDER:$GL_MAX_ORDER"))
-    return GL_NODE_TABLE[order - GL_MIN_ORDER + 1]
+    @inbounds return GL_NODE_TABLE[order - GL_MIN_ORDER + 1]
 end
 
 const CSI03 = (-0.77459666924148337703585310, 0.0, 0.77459666924148337703585310)
