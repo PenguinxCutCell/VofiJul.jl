@@ -205,13 +205,17 @@ function vofi_order_dirs_2D(impl_func, par, x0, h0, pdir, sdir, f0, xfs_pt)
     fxx = (fc[3, 2] + fc[1, 2] - 2 * fc[2, 2]) * have^2 / (hh[1]^2)
     fyy = (fc[2, 3] + fc[2, 1] - 2 * fc[2, 2]) * have^2 / (hh[2]^2)
     fxy = (fc[3, 3] - fc[3, 1] - fc[1, 3] + fc[1, 1]) * have^2 / (4 * hh[1] * hh[2])
-    tmp = fx^2 + fy^2
-    tmp = sqrt(tmp^3)
-    Kappa = abs(fxx * fy^2 - 2 * fx * fy * fxy + fx^2 * fyy) / tmp
+    tmp = sqrt((fx^2 + fy^2)^3)
+    if !isfinite(tmp) || tmp < EPS_NOT0
+        Kappa = 0.0
+    else
+        Kappa = abs(fxx * fy^2 - 2 * fx * fy * fxy + fx^2 * fyy) / tmp
+    end
     a0, a1, a2, a3 = 2.30477, 28.5312, -46.2729, 56.9179
     est = a0 + Kappa * (a1 + Kappa * (a2 + a3 * Kappa))
-    npt = Int(ceil(est))
-    xfs_pt.ipt = max(4, min(npt, NGLM))
+    est = isfinite(est) ? est : a0
+    npt = clamp(Int(ceil(est)), 4, NGLM)
+    xfs_pt.ipt = npt
     return -1
 end
 
@@ -372,7 +376,7 @@ function vofi_order_dirs_3D(impl_func, par, x0, h0, pdir, sdir, tdir, f0, xfsp)
     vofi_xyz2pst!(f0, jp, js, jt)
 
     if check_dir >= 0
-        xfsp[5] = xfsp[jp]
+        copy!(xfsp[5], xfsp[jp])
     else
         vofi_check_secter_face(impl_func, par, x0, h0, pdir, sdir, tdir, f0, xfsp[5], fth)
     end
@@ -419,6 +423,8 @@ function vofi_order_dirs_3D(impl_func, par, x0, h0, pdir, sdir, tdir, f0, xfsp)
     Kappa = sumf_curv / sumf_total
     a0, a1, a2, a3 = 2.34607, 16.5515, -5.53054, 54.0866
     tmp = a0 + Kappa * (a1 + Kappa * (a2 + a3 * Kappa))
+    tmp = isfinite(tmp) ? tmp : a0
+    tmp = clamp(tmp, 4.0, NGLM)
     npt = Int(ceil(tmp))
     xfsp[5].ipt = max(4, min(npt, NGLM))
     return icc
