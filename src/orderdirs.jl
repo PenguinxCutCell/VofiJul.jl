@@ -214,7 +214,8 @@ function vofi_order_dirs_2D(impl_func, par, x0, h0, pdir, sdir, f0, xfs_pt)
     a0, a1, a2, a3 = 2.30477, 28.5312, -46.2729, 56.9179
     est = a0 + Kappa * (a1 + Kappa * (a2 + a3 * Kappa))
     est = isfinite(est) ? est : a0
-    npt = clamp(Int(ceil(est)), 4, NGLM)
+    est = clamp(est, 4.0, float(NGLM))
+    npt = Int(ceil(est))
     xfs_pt.ipt = npt
     return -1
 end
@@ -424,7 +425,7 @@ function vofi_order_dirs_3D(impl_func, par, x0, h0, pdir, sdir, tdir, f0, xfsp)
     a0, a1, a2, a3 = 2.34607, 16.5515, -5.53054, 54.0866
     tmp = a0 + Kappa * (a1 + Kappa * (a2 + a3 * Kappa))
     tmp = isfinite(tmp) ? tmp : a0
-    tmp = clamp(tmp, 4.0, NGLM)
+    tmp = clamp(tmp, 4.0, float(NGLM))
     npt = Int(ceil(tmp))
     xfsp[5].ipt = max(4, min(npt, NGLM))
     return icc
