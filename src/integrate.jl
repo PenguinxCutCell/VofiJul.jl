@@ -99,6 +99,7 @@ function vofi_get_area(impl_func, par, x0, h0, base, pdir, sdir, xhp, centroid, 
     xp = 0.0
     xs = 0.0
     it0 = 1
+    max_sections = min(length(xhp), length(npt))
     for ns in 1:nsub
         ds = base[ns + 1] - base[ns]
         mdpt = 0.5 * (base[ns + 1] + base[ns])
@@ -110,6 +111,9 @@ function vofi_get_area(impl_func, par, x0, h0, base, pdir, sdir, xhp, centroid, 
                 xs += mdpt * al
             end
         elseif nsect[ns] < 0
+            if it0 > max_sections
+                break  # no storage/point-count info for additional sections
+            end
             npts = Int(clamp(floor(18 * ds / hm) + 3, 3, 20))
             npts = min(nptmp, npts)
             if 3 <= npt[2] <= 20

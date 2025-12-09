@@ -229,8 +229,12 @@ function vofi_edge_points(impl_func, par, x0, h0, base, pdir, sdir, xhp, npt, ns
     for i in 1:NDIM
         x1[i] = x0[i] + pdir[i] * h0[i]
     end
+    max_sections = min(length(xhp), length(npt))
     for ns in 1:nsub
         if nsect[ns] < 0
+            if it0 > max_sections
+                break  # no storage/point-count info for additional sections
+            end
             ds = base[ns + 1] - base[ns]
             mdpt = 0.5 * (base[ns + 1] + base[ns])
             npts = ds < 2 * EPS_LOC ? 1 : npt[it0]
