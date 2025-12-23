@@ -1,7 +1,16 @@
 function vofi_get_cc(impl_func, par, xin, h0, xex, nex, npt, nvis, ndim0)
-    # Ensure we have enough slots for barycenter coords plus interface measure
+    # Ensure we have enough slots for barycenter coords plus interface measure and interface centroid
     nex_interface = length(nex) >= 2 ? nex[2] : 0
-    required_len = (ndim0 == 4 && nex_interface > 0) ? 5 : max(4, ndim0)
+    # nex[2] > 1 means also compute interface centroid (requires extra slots)
+    if ndim0 == 4 && nex_interface > 0
+        required_len = nex_interface > 1 ? 9 : 5  # 4D: centroid(4) + surface + opt. iface centroid(4)
+    elseif ndim0 == 3 && nex_interface > 1
+        required_len = 7  # 3D: centroid(3) + surface + iface centroid(3)
+    elseif ndim0 == 2 && nex_interface > 1
+        required_len = 6  # 2D: centroid(2) + padding + arc_len + iface centroid(2)
+    else
+        required_len = (ndim0 == 4 && nex_interface > 0) ? 5 : max(4, ndim0)
+    end
     if length(xex) < required_len
         resize!(xex, required_len)
     end
@@ -65,7 +74,14 @@ function vofi_get_cc(impl_func, par, xin, h0, xex, nex, npt, nvis, ndim0)
             end
         end
         if nex[2] > 0
-            xex[4] = vofi_interface_length(impl_func, par, x0, hvec, pdir, sdir, (xhp1, xhp2), nvis[2])
+            arc_len, (icent_p, icent_s) = vofi_interface_length_and_centroid(impl_func, par, x0, hvec, pdir, sdir, (xhp1, xhp2), nvis[2])
+            xex[4] = arc_len
+            # Store interface centroid in xex[5:6] if requested (nex[2] > 1)
+            if nex[2] > 1 && length(xex) >= 6
+                # Convert from local (p,s) coordinates to global coordinates
+                xex[5] = x0[1] + icent_p * pdir[1] + icent_s * sdir[1]
+                xex[6] = x0[2] + icent_p * pdir[2] + icent_s * sdir[2]
+            end
         end
         return cc
     elseif ndim0 == 3
@@ -97,7 +113,8 @@ function vofi_get_cc(impl_func, par, xin, h0, xex, nex, npt, nvis, ndim0)
 
         base = @MVector zeros(vofi_real, NSEG + 1)
         nsub = vofi_get_limits_3D(impl_func, par, x0, hvec, f03D, xfsp, base, pdir, sdir, tdir)
-        centroid = @MVector zeros(vofi_real, NDIM + 1)
+        # Extend centroid array to hold interface centroid: vol_centroid(3) + surface(1) + iface_centroid(3)
+        centroid = @MVector zeros(vofi_real, 7)
         volume = vofi_get_volume(impl_func, par, x0, hvec, base, pdir, sdir, tdir, centroid,
                                  nex, npt, nsub, xfsp[5].ipt, nvis)
         cc = volume / (hvec[1] * hvec[2] * hvec[3])
@@ -111,6 +128,16 @@ function vofi_get_cc(impl_func, par, xin, h0, xex, nex, npt, nvis, ndim0)
         end
         if nex[2] > 0
             xex[4] = centroid[4]
+            # Store interface centroid in xex[5:7] if requested (nex[2] > 1)
+            if nex[2] > 1 && length(xex) >= 7
+                # centroid[5:7] contains (t, s, p) local coords - convert to global
+                iface_t = centroid[5]
+                iface_s = centroid[6]
+                iface_p = centroid[7]
+                for i in 1:NDIM
+                    xex[4 + i] = x0[i] + iface_p * pdir[i] + iface_s * sdir[i] + iface_t * tdir[i]
+                end
+            end
         end
         return cc
     elseif ndim0 == 4
@@ -144,7 +171,8 @@ function vofi_get_cc(impl_func, par, xin, h0, xex, nex, npt, nvis, ndim0)
 
         base = zeros(vofi_real, NSEG + 1)
         nsub = vofi_get_limits_4D(impl_func, par, x0_4, h4, f04D, xfsp, base, pdir, sdir, tdir, qdir)
-        centroid = zeros(vofi_real, 5)
+        # Extend centroid array: vol_centroid(4) + surface(1) + iface_centroid(4)
+        centroid = zeros(vofi_real, 9)
         hypervolume = vofi_get_hypervolume(impl_func, par, x0_4, h4, base,
                           pdir, sdir, tdir, qdir,
                           centroid, nex, npt, nsub,
@@ -167,6 +195,18 @@ function vofi_get_cc(impl_func, par, xin, h0, xex, nex, npt, nvis, ndim0)
         end
         if nex[2] > 0
             xex[5] = centroid[5]
+            # Store interface centroid in xex[6:9] if requested (nex[2] > 1)
+            if nex[2] > 1 && length(xex) >= 9
+                ax_p = axis_index(pdir)
+                ax_s = axis_index(sdir)
+                ax_t = axis_index(tdir)
+                ax_q = axis_index(qdir)
+                # centroid[6:9] are absolute coords in (p,s,t,q) space - map back
+                xex[5 + ax_p] = centroid[6]
+                xex[5 + ax_s] = centroid[7]
+                xex[5 + ax_t] = centroid[8]
+                xex[5 + ax_q] = centroid[9]
+            end
         end
         return cc
     else

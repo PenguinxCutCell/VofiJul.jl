@@ -152,6 +152,195 @@ function vofi_interface_surface(impl_func, par, x0, h0, xt, pdir, sdir, tdir,
     return surfer
 end
 
+"""
+    vofi_interface_surface_and_centroid(impl_func, par, x0, h0, xt, pdir, sdir, tdir, xhpn, xhpo, k, nexpt, ipf)
+
+Compute both the interface surface area and its centroid using precomputed heights.
+Returns `(surface_area, (centroid_t, centroid_s, centroid_p))` where the centroid tuple is in local (t, s, p) coordinates.
+"""
+function vofi_interface_surface_and_centroid(impl_func, par, x0, h0, xt, pdir, sdir, tdir,
+                                              xhpn, xhpo, k, nexpt, ipf)
+    xa = @MVector zeros(vofi_real, NDIM)
+    xb = @MVector zeros(vofi_real, NDIM)
+    xc = @MVector zeros(vofi_real, NDIM)
+    x1 = @MVector zeros(vofi_real, NDIM)
+    x2 = @MVector zeros(vofi_real, NDIM)
+    s0 = @MVector zeros(vofi_real, 4)
+    surfer = 0.0
+    # Accumulators for centroid in local (t, s, p) coordinates
+    cent_t = 0.0
+    cent_s = 0.0
+    cent_p = 0.0
+    hp = zero(vofi_real)
+    for i in 1:NDIM
+        hp += pdir[i] * h0[i]
+    end
+    s0[1] = hp
+    km = k - 1
+    if k == 2 || k > nexpt
+        km -= 1
+    end
+    nsec = xhpn[2].np0 > 0 ? 2 : (xhpn[1].np0 > 0 ? 1 : 0)
+    for it0 in 1:nsec
+        npn = xhpn[it0].np0
+        npo = xhpo[it0].np0
+        f_sign = xhpn[it0].f_sign
+        djl = djr = djc = -1
+        nmin = min(npn, npo)
+        nmax = max(npn, npo)
+        if nmin == 0
+            continue
+        end
+        if npn >= npo
+            pts1 = xhpn[it0].xt0
+            pth1 = xhpn[it0].ht0
+            pts2 = xhpo[it0].xt0
+            pth2 = xhpo[it0].ht0
+            t1 = xt[k + 1]
+            t2 = xt[km + 1]
+        else
+            pts1 = xhpo[it0].xt0
+            pth1 = xhpo[it0].ht0
+            pts2 = xhpn[it0].xt0
+            pth2 = xhpn[it0].ht0
+            t2 = xt[k + 1]
+            t1 = xt[km + 1]
+        end
+        if nmin == 1
+            djl = nmax - 2
+        else
+            djc = nmin - 2
+            npa = nmax
+            psa_idx = 1
+            psb_idx = nmax
+            dxl = pts2[1] - pts1[psa_idx]
+            dxr = pts1[psb_idx] - pts2[nmin]
+            while npa > nmin
+                if dxr >= dxl
+                    djr += 1
+                    psb_idx -= 1
+                    dxr = pts1[psb_idx] - pts2[nmin]
+                else
+                    djl += 1
+                    psa_idx += 1
+                    dxl = pts2[1] - pts1[psa_idx]
+                end
+                npa -= 1
+            end
+        end
+
+        pts1_idx = 1
+        pth1_idx = 1
+        pts2_idx = 1
+        pth2_idx = 1
+        for _ in 0:djl
+            xa .= (t1, pts1[pts1_idx], pth1[pth1_idx])
+            xb .= (t2, pts2[pts2_idx], pth2[pth2_idx])
+            pts1_idx += 1
+            pth1_idx += 1
+            xc .= (t1, pts1[pts1_idx], pth1[pth1_idx])
+            tri_area, tri_cent = vofi_triarea_and_centroid(xa, xb, xc)
+            surfer += tri_area
+            cent_t += tri_area * tri_cent[1]
+            cent_s += tri_area * tri_cent[2]
+            cent_p += tri_area * tri_cent[3]
+            if ipf > 0
+                tecplot_triangle(x0, pdir, sdir, tdir, xa, xb, xc, hp, f_sign)
+            end
+        end
+
+        tc = 0.5 * (t1 + t2)
+        s0[4] = 0.5 * (xhpo[it0].htp[2] + xhpn[it0].htp[2])
+        for _ in 0:djc
+            psa_idx = pts1_idx
+            psb_idx = pts2_idx
+            pha_idx = pth1_idx
+            phb_idx = pth2_idx
+            pts1_idx += 1
+            pts2_idx += 1
+            pth1_idx += 1
+            pth2_idx += 1
+            sc = 0.25 * (pts1[psa_idx] + pts2[psb_idx] + pts1[pts1_idx] + pts2[pts2_idx])
+            hsum = pth1[pha_idx] + pth2[phb_idx] + pth1[pth1_idx] + pth2[pth2_idx]
+            s0[2] = 0.25 * hsum
+            if f_sign < 0
+                s0[2] = hp - s0[2]
+            end
+            ratio = s0[2] / hp
+            if ratio < NEAR_EDGE_RATIO
+                s0[2] = 0.0
+            elseif ratio > 1 - NEAR_EDGE_RATIO
+                s0[2] = hp
+            end
+            for i in 1:NDIM
+                x1[i] = x0[i] + tc * tdir[i] + sc * sdir[i]
+                x2[i] = x1[i] + s0[2] * pdir[i]
+            end
+            s0[3] = call_integrand(impl_func, par, x2)
+            hc = vofi_get_segment_zero(impl_func, par, x1, pdir, s0, f_sign)
+            
+            xa .= (t1, pts1[psa_idx], pth1[pha_idx])
+            xb .= (tc, sc, hc)
+            xc .= (t1, pts1[pts1_idx], pth1[pth1_idx])
+            tri_area, tri_cent = vofi_triarea_and_centroid(xa, xb, xc)
+            surfer += tri_area
+            cent_t += tri_area * tri_cent[1]
+            cent_s += tri_area * tri_cent[2]
+            cent_p += tri_area * tri_cent[3]
+            if ipf > 0
+                tecplot_triangle(x0, pdir, sdir, tdir, xa, xb, xc, hp, f_sign)
+            end
+
+            xc .= (t2, pts2[psb_idx], pth2[phb_idx])
+            tri_area, tri_cent = vofi_triarea_and_centroid(xa, xb, xc)
+            surfer += tri_area
+            cent_t += tri_area * tri_cent[1]
+            cent_s += tri_area * tri_cent[2]
+            cent_p += tri_area * tri_cent[3]
+            if ipf > 0
+                tecplot_triangle(x0, pdir, sdir, tdir, xa, xb, xc, hp, f_sign)
+            end
+
+            xa .= (t2, pts2[pts2_idx], pth2[pth2_idx])
+            tri_area, tri_cent = vofi_triarea_and_centroid(xa, xb, xc)
+            surfer += tri_area
+            cent_t += tri_area * tri_cent[1]
+            cent_s += tri_area * tri_cent[2]
+            cent_p += tri_area * tri_cent[3]
+            if ipf > 0
+                tecplot_triangle(x0, pdir, sdir, tdir, xa, xb, xc, hp, f_sign)
+            end
+
+            xc .= (t1, pts1[pts1_idx], pth1[pth1_idx])
+            tri_area, tri_cent = vofi_triarea_and_centroid(xa, xb, xc)
+            surfer += tri_area
+            cent_t += tri_area * tri_cent[1]
+            cent_s += tri_area * tri_cent[2]
+            cent_p += tri_area * tri_cent[3]
+            if ipf > 0
+                tecplot_triangle(x0, pdir, sdir, tdir, xa, xb, xc, hp, f_sign)
+            end
+        end
+
+        for _ in 0:djr
+            xa .= (t1, pts1[pts1_idx], pth1[pth1_idx])
+            xb .= (t2, pts2[pts2_idx], pth2[pth2_idx])
+            pts1_idx += 1
+            pth1_idx += 1
+            xc .= (t1, pts1[pts1_idx], pth1[pth1_idx])
+            tri_area, tri_cent = vofi_triarea_and_centroid(xa, xb, xc)
+            surfer += tri_area
+            cent_t += tri_area * tri_cent[1]
+            cent_s += tri_area * tri_cent[2]
+            cent_p += tri_area * tri_cent[3]
+            if ipf > 0
+                tecplot_triangle(x0, pdir, sdir, tdir, xa, xb, xc, hp, f_sign)
+            end
+        end
+    end
+    return surfer, (cent_t, cent_s, cent_p)
+end
+
 function vofi_end_points(impl_func, par, x0, h0, pdir, sdir, xhhp)
     x20 = @MVector zeros(vofi_real, NDIM)
     x21 = @MVector zeros(vofi_real, NDIM)
@@ -306,6 +495,27 @@ function vofi_edge_points(impl_func, par, x0, h0, base, pdir, sdir, xhp, npt, ns
         end
     end
     return nothing
+end
+
+"""
+    vofi_triarea_and_centroid(xa, xb, xc)
+
+Compute both the area and centroid of a triangle with vertices xa, xb, xc.
+Returns (area, centroid) where centroid is the average of the vertices.
+"""
+function vofi_triarea_and_centroid(xa, xb, xc)
+    u = xb .- xa
+    v = xc .- xa
+    cross = [u[2] * v[3] - u[3] * v[2],
+             u[3] * v[1] - u[1] * v[3],
+             u[1] * v[2] - u[2] * v[1]]
+    cross_sq = cross[1]^2 + cross[2]^2 + cross[3]^2
+    area = 0.5 * sqrt(cross_sq)
+    # Triangle centroid is the average of vertices
+    cent = ((xa[1] + xb[1] + xc[1]) / 3.0,
+            (xa[2] + xb[2] + xc[2]) / 3.0,
+            (xa[3] + xb[3] + xc[3]) / 3.0)
+    return area, cent
 end
 
 function vofi_triarea(xa, xb, xc)
