@@ -1,4 +1,4 @@
-function vofi_get_length_1D(impl_func, par, x0, h0, f0, xex, ncen)
+function vofi_get_length_1D(impl_func::F, par, x0, h0, f0, xex, ncen) where {F}
     # For 1D, we just need to find the zero crossing
     # f0 has two values: f0[1] at x0[1] and f0[2] at x0[1] + h0[1]
     
@@ -81,12 +81,13 @@ function vofi_get_length_1D(impl_func, par, x0, h0, f0, xex, ncen)
     return length_inside
 end
 
-function vofi_get_area(impl_func, par, x0, h0, base, pdir, sdir, xhp, centroid, ncen, npt, nsub, nptmp, nsect, ndire)
-    x1 = @MVector zeros(vofi_real, NDIM)
-    x20 = @MVector zeros(vofi_real, NDIM)
-    x21 = @MVector zeros(vofi_real, NDIM)
-    s0 = @MVector zeros(vofi_real, 4)
-    fse = @MVector zeros(vofi_real, NSE)
+function vofi_get_area(impl_func::F, par, x0, h0, base, pdir, sdir, xhp, centroid, ncen, npt, nsub, nptmp, nsect, ndire) where {F}
+    cache = get_vofi_cache()
+    x1 = cache.x1_area
+    x20 = cache.x20_area
+    x21 = cache.x21_area
+    s0 = cache.s0_area
+    fse = cache.fse_area
     area = 0.0
     hp = 0.0
     hs = 0.0
@@ -216,11 +217,12 @@ function vofi_get_area(impl_func, par, x0, h0, base, pdir, sdir, xhp, centroid, 
     return area
 end
 
-function vofi_get_volume(impl_func, par, x0, h0, base_ext, pdir, sdir, tdir,
-                         centroid, nex, npt, nsub_ext, nptmp, nvis)
-    x1 = @MVector zeros(vofi_real, NDIM)
-    base_int = @MVector zeros(vofi_real, NSEG + 1)
-    xmidt = @MVector zeros(vofi_real, NGLM + 2)
+function vofi_get_volume(impl_func::F, par, x0, h0, base_ext, pdir, sdir, tdir,
+                         centroid, nex, npt, nsub_ext, nptmp, nvis) where {F}
+    cache = get_vofi_cache()
+    x1 = cache.x1_vol
+    base_int = cache.base_int_vol
+    xmidt = cache.xmidt_vol
     volume = 0.0
     surfer = 0.0
     hp = hs = ht = 0.0
@@ -231,13 +233,15 @@ function vofi_get_volume(impl_func, par, x0, h0, base_ext, pdir, sdir, tdir,
     end
     hm = maximum(h0)
     xp = xs = xt = 0.0
-    xhpn1 = LenData()
-    xhpn2 = LenData()
-    xhpo1 = LenData()
-    xhpo2 = LenData()
-    xfs = MinData()
-    nsect = @MVector zeros(Int, NSEG)
-    ndire = @MVector zeros(Int, NSEG)
+    xhpn1 = cache.xhpn1
+    xhpn2 = cache.xhpn2
+    xhpo1 = cache.xhpo1
+    xhpo2 = cache.xhpo2
+    xhpn_edge1 = cache.xhpn_edge1
+    xhpn_edge2 = cache.xhpn_edge2
+    xfs = cache.xfs_vol
+    nsect = cache.nsect_vol
+    ndire = cache.ndire_vol
 
     for nt in 1:nsub_ext
         dt = base_ext[nt + 1] - base_ext[nt]
@@ -276,10 +280,6 @@ function vofi_get_volume(impl_func, par, x0, h0, base_ext, pdir, sdir, tdir,
         ptw_ext = gauss_legendre_weights(nexpt)
 
         quadv = quadp = quads = quadt = 0.0
-        xhpo1 = LenData()
-        xhpo2 = LenData()
-        xhpn_edge1 = LenData()
-        xhpn_edge2 = LenData()
         xmidt[1] = base_ext[nt]
         xmidt[nexpt + 2] = base_ext[nt + 1]
         for k in 1:nexpt
@@ -291,8 +291,8 @@ function vofi_get_volume(impl_func, par, x0, h0, base_ext, pdir, sdir, tdir,
             nsub_int = vofi_get_limits_inner_2D(impl_func, par, x1, h0, xfs, base_int,
                                                 pdir, sdir, nsect, ndire, sect_hexa)
             # Reset xhpn structures for this iteration
-            xhpn1 = LenData()
-            xhpn2 = LenData()
+            xhpn1.np0 = 0
+            xhpn2.np0 = 0
             area = vofi_get_area(impl_func, par, x1, h0, base_int, pdir, sdir, (xhpn1, xhpn2),
                                  centroid, nex[1], npt, nsub_int, nptmp, nsect, ndire)
             if nvis[1] > 0
@@ -301,12 +301,14 @@ function vofi_get_volume(impl_func, par, x0, h0, base_ext, pdir, sdir, tdir,
             if nex[2] > 0
                 vofi_end_points(impl_func, par, x1, h0, pdir, sdir, (xhpn1, xhpn2))
                 if k == 1
-                    xedge = @MVector zeros(vofi_real, NDIM)
+                    xedge = cache.xedge_vol
                     for i in 1:NDIM
                         xedge[i] = x0[i] + tdir[i] * xmidt[1]
                     end
                     nintmp = vofi_get_limits_edge_2D(impl_func, par, xedge, h0, xfs,
                                                      base_int, pdir, sdir, nsub_int)
+                    xhpo1.np0 = 0
+                    xhpo2.np0 = 0
                     vofi_edge_points(impl_func, par, xedge, h0, base_int, pdir, sdir,
                                      (xhpo1, xhpo2), (xhpn1.np0, xhpn2.np0), nintmp, nsect, ndire)
                     vofi_end_points(impl_func, par, xedge, h0, pdir, sdir, (xhpo1, xhpo2))
@@ -316,12 +318,14 @@ function vofi_get_volume(impl_func, par, x0, h0, base_ext, pdir, sdir, tdir,
                     copy!(xhpo1, xhpn1)
                     copy!(xhpo2, xhpn2)
                 else
-                    xedge = @MVector zeros(vofi_real, NDIM)
+                    xedge = cache.xedge_vol
                     for i in 1:NDIM
                         xedge[i] = x0[i] + tdir[i] * xmidt[nexpt + 2]
                     end
                     nintmp = vofi_get_limits_edge_2D(impl_func, par, xedge, h0, xfs,
                                                      base_int, pdir, sdir, nsub_int)
+                    xhpn_edge1.np0 = 0
+                    xhpn_edge2.np0 = 0
                     vofi_edge_points(impl_func, par, xedge, h0, base_int, pdir, sdir,
                                      (xhpn_edge1, xhpn_edge2), (xhpo1.np0, xhpo2.np0), nintmp, nsect, ndire)
                     vofi_end_points(impl_func, par, xedge, h0, pdir, sdir, (xhpn_edge1, xhpn_edge2))
@@ -350,8 +354,8 @@ function vofi_get_volume(impl_func, par, x0, h0, base_ext, pdir, sdir, tdir,
     return volume
 end
 
-function vofi_get_hypervolume(impl_func, par, x0, h0, base, pdir, sdir, tdir, qdir,
-                              centroid, nex, npt, nsub, nptmp, nvis)
+function vofi_get_hypervolume(impl_func::F, par, x0, h0, base, pdir, sdir, tdir, qdir,
+                              centroid, nex, npt, nsub, nptmp, nvis) where {F}
     ax_p = axis_index(pdir)
     ax_s = axis_index(sdir)
     ax_t = axis_index(tdir)

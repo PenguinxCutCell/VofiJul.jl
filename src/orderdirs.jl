@@ -1,4 +1,4 @@
-function vofi_order_dirs_1D(impl_func, par, x0, h0, f0)
+function vofi_order_dirs_1D(impl_func::F, par, x0, h0, f0) where {F}
     np0 = 0
     nm0 = 0
     icc = -1
@@ -52,9 +52,10 @@ function vofi_order_dirs_1D(impl_func, par, x0, h0, f0)
     return -1  # interface crosses the cell
 end
 
-function vofi_order_dirs_2D(impl_func, par, x0, h0, pdir, sdir, f0, xfs_pt)
-    n0 = @MMatrix zeros(Int, NSE, NSE)
-    fc = @MMatrix zeros(vofi_real, NDIM, NDIM)
+function vofi_order_dirs_2D(impl_func::F, par, x0, h0, pdir, sdir, f0, xfs_pt) where {F}
+    cache = get_vofi_cache()
+    n0 = cache.n02D
+    fc = cache.fc2D
     hh = 0.5 .* h0
     np0 = 0
     nm0 = 0
@@ -220,9 +221,10 @@ function vofi_order_dirs_2D(impl_func, par, x0, h0, pdir, sdir, f0, xfs_pt)
     return -1
 end
 
-function vofi_order_dirs_3D(impl_func, par, x0, h0, pdir, sdir, tdir, f0, xfsp)
-    fc = @MArray zeros(vofi_real, NDIM, NDIM, NDIM)
-    fd = @MMatrix zeros(vofi_real, NDIM, NDIM)
+@inline function vofi_order_dirs_3D(impl_func::F, par, x0, h0, pdir, sdir, tdir, f0, xfsp) where {F}
+    cache = get_vofi_cache()
+    fc = cache.fc3D
+    fd = cache.fd3D
     hh = 0.5 .* h0
     fgrad = @MVector zeros(vofi_real, NDIM)
     np0 = 0
@@ -232,7 +234,7 @@ function vofi_order_dirs_3D(impl_func, par, x0, h0, pdir, sdir, tdir, f0, xfsp)
     MIN_GRAD = 1.0e-4
     nmax0 = 8
 
-    x = @MVector zeros(vofi_real, NDIM)
+    x = cache.x3D
     for i in 0:1, j in 0:1, k in 0:1
         x[1] = x0[1] + i * h0[1]
         x[2] = x0[2] + j * h0[2]
@@ -258,7 +260,8 @@ function vofi_order_dirs_3D(impl_func, par, x0, h0, pdir, sdir, tdir, f0, xfsp)
     fth = sqrt(2.0) * fgradmod * hm
 
     if np0 * nm0 == 0
-        n0 = @MArray zeros(Int, NSE, NSE, NSE)
+        n0 = cache.n03D
+        fill!(n0, 0)
         np0 = nm0 = 0
         for i in 0:1, j in 0:1, k in 0:1
             val = abs(f0[i + 1, j + 1, k + 1])
@@ -287,7 +290,7 @@ function vofi_order_dirs_3D(impl_func, par, x0, h0, pdir, sdir, tdir, f0, xfsp)
     for i in 0:1, j in 0:1, k in 0:1
         fc[2 * i + 1, 2 * j + 1, 2 * k + 1] = f0[i + 1, j + 1, k + 1]
     end
-    x = @MVector zeros(vofi_real, NDIM)
+    x = cache.x3D
     x[3] = x0[3] + hh[3]
     for i in 0:2:2, j in 0:2:2
         x[1] = x0[1] + i * hh[1]
@@ -543,7 +546,7 @@ function bisection_zero_along_dir(impl_func, par, base, dir, sa, sb, fa, fb)
 end
 
 function vofi_populate_sector_volume_4D!(xfsp::XFSP4D, impl_func, par, x0, hvec, pdir, sdir, tdir, qdir, f0, fth)
-    base = zeros(vofi_real, 4)
+    base = @MVector zeros(vofi_real, 4)
     for m in 0:1
         data = xfsp.sectors[m + 1]
         reset_min_data4d!(data)
@@ -573,11 +576,11 @@ end
 function vofi_populate_quaternary_edges_4D!(xfsp::XFSP4D, impl_func, par, x0, hvec,
                                             pdir, sdir, tdir, qdir, f0, fth)
     qlen = axis_length(qdir, hvec)
-    dir = zeros(vofi_real, 4)
+    dir = @MVector zeros(vofi_real, 4)
     for i in 1:4
         dir[i] = qdir[i]
     end
-    base = zeros(vofi_real, 4)
+    base = @MVector zeros(vofi_real, 4)
     for m in 0:1
         for n in 0:1
             for o in 0:1
@@ -615,20 +618,24 @@ function vofi_populate_quaternary_edges_4D!(xfsp::XFSP4D, impl_func, par, x0, hv
     end
 end
 
-function vofi_order_dirs_4D(impl_func, par, x0::Vector{vofi_real}, h0, pdir, sdir, tdir, qdir,
-                            f0::Array{vofi_real, 4}, xfsp::XFSP4D)
+function vofi_order_dirs_4D(impl_func::F, par, x0::Vector{vofi_real}, h0, pdir, sdir, tdir, qdir,
+                            f0::Array{vofi_real, 4}, xfsp::XFSP4D) where {F}
     length(x0) == 4 || throw(ArgumentError("x0 must have length 4 for 4D cells"))
     length(h0) == 4 || throw(ArgumentError("h0 must have length 4 for 4D cells"))
-    hvec = Vector{vofi_real}(undef, 4)
+    cache = get_vofi_cache()
+    hvec = cache.hvec4
     for i in 1:4
         hvec[i] = vofi_real(h0[i])
     end
-    hh = 0.5 .* hvec
+    hh = cache.hh4
+    for i in 1:4
+        hh[i] = 0.5 * hvec[i]
+    end
     MIN_GRAD = 1.0e-4
     nmax0 = 16
     np0 = 0
     nm0 = 0
-    x = Vector{vofi_real}(undef, 4)
+    x = cache.x4
     for i in 0:1, j in 0:1, k in 0:1, l in 0:1
         x[1] = x0[1] + i * hvec[1]
         x[2] = x0[2] + j * hvec[2]
@@ -643,7 +650,7 @@ function vofi_order_dirs_4D(impl_func, par, x0::Vector{vofi_real}, h0, pdir, sdi
         end
     end
 
-    fgrad = zeros(vofi_real, 4)
+    fgrad = cache.fgrad4
     fgrad[1] = 0.125 * ((f0[2, 2, 2, 2] + f0[2, 1, 2, 2] + f0[2, 2, 1, 2] + f0[2, 1, 1, 2] +
                          f0[2, 2, 2, 1] + f0[2, 1, 2, 1] + f0[2, 2, 1, 1] + f0[2, 1, 1, 1]) -
                         (f0[1, 2, 2, 2] + f0[1, 1, 2, 2] + f0[1, 2, 1, 2] + f0[1, 1, 1, 2] +
@@ -669,7 +676,8 @@ function vofi_order_dirs_4D(impl_func, par, x0::Vector{vofi_real}, h0, pdir, sdi
 
     check_dir = -1
     if np0 * nm0 == 0
-        n0 = zeros(Int, 2, 2, 2, 2)
+        n0 = cache.n04D
+        fill!(n0, 0)
         np0 = 0
         nm0 = 0
         for i in 0:1, j in 0:1, k in 0:1, l in 0:1
@@ -696,8 +704,10 @@ function vofi_order_dirs_4D(impl_func, par, x0::Vector{vofi_real}, h0, pdir, sdi
         end
     end
 
-    mags = abs.(fgrad)
-    order = sortperm(mags, rev = true)
+    mags = cache.mags4
+    mags .= abs.(fgrad)
+    order = cache.order4
+    sortperm!(order, mags, rev = true)
     if check_dir > 0
         idx = findfirst(==(check_dir), order)
         if idx !== nothing && idx != 1

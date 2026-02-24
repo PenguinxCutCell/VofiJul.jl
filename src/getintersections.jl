@@ -1,4 +1,4 @@
-function vofi_get_side_intersections(impl_func, par, fse, x0, xfsp, base, dir, hl, nsub, isc)
+function vofi_get_side_intersections(impl_func::F, par, fse, x0, xfsp, base, dir, hl, nsub, isc) where {F}
     s0 = @MVector zeros(vofi_real, 4)
     inters = 0
     if isc < 0
@@ -55,7 +55,7 @@ function vofi_get_side_intersections(impl_func, par, fse, x0, xfsp, base, dir, h
     return inters
 end
 
-function vofi_get_ext_intersections(impl_func, par, x0, h0, xfsp, base, sdir, tdir, nsub)
+function vofi_get_ext_intersections(impl_func::F, par, x0, h0, xfsp, base, sdir, tdir, nsub) where {F}
     pt0 = copy(xfsp.xval)
     pt1 = copy(pt0)
     pt2 = copy(pt0)

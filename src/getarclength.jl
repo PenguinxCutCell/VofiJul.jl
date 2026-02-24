@@ -1,4 +1,4 @@
-function vofi_interface_length(impl_func, par, x0, h0, pdir, sdir, xhhp, ipf)
+function vofi_interface_length(impl_func::F, par, x0, h0, pdir, sdir, xhhp, ipf) where {F}
     hp = zero(vofi_real)
     for i in 1:NDIM
         hp += pdir[i] * h0[i]

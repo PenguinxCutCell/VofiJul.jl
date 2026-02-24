@@ -184,9 +184,183 @@ Base.copy!(dest::MinData4D, src::MinData4D) = begin
     dest
 end
 
-@inline function call_integrand(func::Integrand, par, coords::AbstractVector)
+@inline function call_integrand(func::F, par, coords::AbstractVector) where {F}
     if par === nothing && applicable(func, coords)
         return func(coords)
     end
     return func(coords, par)
+end
+
+struct VofiCache
+    x0::MVector{NDIM, vofi_real}
+    hvec::MVector{NDIM, vofi_real}
+    
+    # 1D
+    f0_1D::MVector{NSE, vofi_real}
+    
+    # 2D
+    pdir2::MVector{NDIM, vofi_real}
+    sdir2::MVector{NDIM, vofi_real}
+    f02D::MMatrix{NSE, NSE, vofi_real, 4}
+    xfsp_single::MinData
+    base2::MVector{NSEG + 1, vofi_real}
+    nsect2::MVector{NSEG, Int}
+    ndire2::MVector{NSEG, Int}
+    centroid2::MVector{NDIM + 1, vofi_real}
+    xhp1::LenData
+    xhp2::LenData
+    basei_inner2D::MVector{NSEG + 1, Int}
+    x1_inner2D::MVector{NDIM, vofi_real}
+    x2_inner2D::MVector{NDIM, vofi_real}
+    fse_inner2D::MVector{NSE, vofi_real}
+    n02D::MMatrix{NSE, NSE, Int, 4}
+    fc2D::MMatrix{NDIM, NDIM, vofi_real, 9}
+    
+    # 3D
+    pdir3::MVector{NDIM, vofi_real}
+    sdir3::MVector{NDIM, vofi_real}
+    tdir3::MVector{NDIM, vofi_real}
+    f03D::MArray{Tuple{NSE, NSE, NSE}, vofi_real, 3, 8}
+    fc3D::MArray{Tuple{NDIM, NDIM, NDIM}, vofi_real, 3, 27}
+    fd3D::MMatrix{NDIM, NDIM, vofi_real, 9}
+    n03D::MArray{Tuple{NSE, NSE, NSE}, Int, 3, 8}
+    x3D::MVector{NDIM, vofi_real}
+    xfsp1::MinData
+    xfsp2::MinData
+    xfsp3::MinData
+    xfsp4::MinData
+    xfsp5::MinData
+    xfsp_tuple::Tuple{MinData, MinData, MinData, MinData, MinData}
+    base3::MVector{NSEG + 1, vofi_real}
+    centroid3::MVector{NDIM + 1, vofi_real}
+    xhpn1::LenData
+    xhpn2::LenData
+    xhpo1::LenData
+    xhpo2::LenData
+    xhpn_edge1::LenData
+    xhpn_edge2::LenData
+    xfs_vol::MinData
+    nsect_vol::MVector{NSEG, Int}
+    ndire_vol::MVector{NSEG, Int}
+    xfsl_limits3D::MinData
+    xfsl_check_plane::MinData
+    xfsl_inner2D::MinData
+    xfsl_edge2D::MinData
+    xfsl_cb1::MinData
+    xfsl_cb2::MinData
+    xfsl_cb3::MinData
+    xfsl_cb4::MinData
+    xfsl_cb5::MinData
+    
+    # area
+    x1_area::MVector{NDIM, vofi_real}
+    x20_area::MVector{NDIM, vofi_real}
+    x21_area::MVector{NDIM, vofi_real}
+    s0_area::MVector{4, vofi_real}
+    fse_area::MVector{NSE, vofi_real}
+    
+    # volume
+    x1_vol::MVector{NDIM, vofi_real}
+    base_int_vol::MVector{NSEG + 1, vofi_real}
+    xmidt_vol::MVector{NGLM + 2, vofi_real}
+    xedge_vol::MVector{NDIM, vofi_real}
+    
+    # 4D
+    x0_4::Vector{vofi_real}
+    h4::Vector{vofi_real}
+    pdir4::Vector{vofi_real}
+    sdir4::Vector{vofi_real}
+    tdir4::Vector{vofi_real}
+    qdir4::Vector{vofi_real}
+    f04D::Array{vofi_real, 4}
+    xfsp4D::XFSP4D
+    base4::Vector{vofi_real}
+    centroid4::Vector{vofi_real}
+    hvec4::Vector{vofi_real}
+    hh4::Vector{vofi_real}
+    x4::Vector{vofi_real}
+    fgrad4::Vector{vofi_real}
+    n04D::Array{Int, 4}
+    mags4::Vector{vofi_real}
+    order4::Vector{Int}
+end
+
+function VofiCache()
+    VofiCache(
+        @MVector(zeros(vofi_real, NDIM)),
+        @MVector(zeros(vofi_real, NDIM)),
+        
+        @MVector(zeros(vofi_real, NSE)),
+        
+        @MVector(zeros(vofi_real, NDIM)),
+        @MVector(zeros(vofi_real, NDIM)),
+        @MMatrix(zeros(vofi_real, NSE, NSE)),
+        MinData(),
+        @MVector(zeros(vofi_real, NSEG + 1)),
+        @MVector(zeros(Int, NSEG)),
+        @MVector(zeros(Int, NSEG)),
+        @MVector(zeros(vofi_real, NDIM + 1)),
+        LenData(),
+        LenData(),
+        @MVector(zeros(Int, NSEG + 1)),
+        @MVector(zeros(vofi_real, NDIM)),
+        @MVector(zeros(vofi_real, NDIM)),
+        @MVector(zeros(vofi_real, NSE)),
+        @MMatrix(zeros(Int, NSE, NSE)),
+        @MMatrix(zeros(vofi_real, NDIM, NDIM)),
+        
+        @MVector(zeros(vofi_real, NDIM)),
+        @MVector(zeros(vofi_real, NDIM)),
+        @MVector(zeros(vofi_real, NDIM)),
+        @MArray(zeros(vofi_real, NSE, NSE, NSE)),
+        @MArray(zeros(vofi_real, NDIM, NDIM, NDIM)),
+        @MMatrix(zeros(vofi_real, NDIM, NDIM)),
+        @MArray(zeros(Int, NSE, NSE, NSE)),
+        @MVector(zeros(vofi_real, NDIM)),
+        MinData(), MinData(), MinData(), MinData(), MinData(),
+        (MinData(), MinData(), MinData(), MinData(), MinData()),
+        @MVector(zeros(vofi_real, NSEG + 1)),
+        @MVector(zeros(vofi_real, NDIM + 1)),
+        LenData(), LenData(), LenData(), LenData(), LenData(), LenData(),
+        MinData(),
+        @MVector(zeros(Int, NSEG)),
+        @MVector(zeros(Int, NSEG)),
+        MinData(), MinData(), MinData(), MinData(),
+        MinData(), MinData(), MinData(), MinData(), MinData(),
+        
+        @MVector(zeros(vofi_real, NDIM)),
+        @MVector(zeros(vofi_real, NDIM)),
+        @MVector(zeros(vofi_real, NDIM)),
+        @MVector(zeros(vofi_real, 4)),
+        @MVector(zeros(vofi_real, NSE)),
+        
+        @MVector(zeros(vofi_real, NDIM)),
+        @MVector(zeros(vofi_real, NSEG + 1)),
+        @MVector(zeros(vofi_real, NGLM + 2)),
+        @MVector(zeros(vofi_real, NDIM)),
+        
+        zeros(vofi_real, 4),
+        zeros(vofi_real, 4),
+        zeros(vofi_real, 4),
+        zeros(vofi_real, 4),
+        zeros(vofi_real, 4),
+        zeros(vofi_real, 4),
+        zeros(vofi_real, NSE, NSE, NSE, NSE),
+        XFSP4D(),
+        zeros(vofi_real, NSEG + 1),
+        zeros(vofi_real, 5),
+        zeros(vofi_real, 4),
+        zeros(vofi_real, 4),
+        zeros(vofi_real, 4),
+        zeros(vofi_real, 4),
+        zeros(Int, NSE, NSE, NSE, NSE),
+        zeros(vofi_real, 4),
+        zeros(Int, 4)
+    )
+end
+
+function get_vofi_cache()
+    get!(task_local_storage(), :vofi_cache) do
+        VofiCache()
+    end::VofiCache
 end

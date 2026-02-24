@@ -1,4 +1,4 @@
-function vofi_get_segment_zero(impl_func, par, x0, dir, s0, f_sign)
+function vofi_get_segment_zero(impl_func::F, par, x0, dir, s0, f_sign) where {F}
     xs = @MVector zeros(vofi_real, NDIM)
     sl = 0.0
     sr = s0[1]

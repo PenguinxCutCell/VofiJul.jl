@@ -74,7 +74,7 @@ function vofi_sector_old!(impl_func, par, x0, h0, base, pdir, sdir, nsect, ndire
     end
 end
 
-function vofi_get_limits_2D(impl_func, par, x0, h0, f0, xfsp, base, pdir, sdir, nsect, ndire)
+function vofi_get_limits_2D(impl_func::F, par, x0, h0, f0, xfsp, base, pdir, sdir, nsect, ndire) where {F}
     baser = base
     basei = @MVector zeros(Int, NSEG + 1)  # Use pre-sized stack-allocated array
     baser[1] = 0.0
@@ -159,7 +159,7 @@ function vofi_get_limits_2D(impl_func, par, x0, h0, f0, xfsp, base, pdir, sdir, 
     return nsub
 end
 
-function vofi_get_limits_3D(impl_func, par, x0, h0, f0, xfsp, base, pdir, sdir, tdir)
+@inline function vofi_get_limits_3D(impl_func::F, par, x0, h0, f0, xfsp, base, pdir, sdir, tdir) where {F}
     baser = base
     basei = @MVector zeros(Int, NSEG + 1)  # Use pre-sized stack-allocated array
     baser[1] = 0.0
@@ -174,7 +174,7 @@ function vofi_get_limits_3D(impl_func, par, x0, h0, f0, xfsp, base, pdir, sdir, 
     xp = @MVector zeros(vofi_real, NDIM)
     xt = @MVector zeros(vofi_real, NDIM)
     fse = @MVector zeros(vofi_real, NSE)
-    xfsl = MinData()
+    xfsl = get_vofi_cache().xfsl_limits3D
 
     for m in 0:1
         for i in 1:NDIM
@@ -232,7 +232,7 @@ function vofi_get_limits_3D(impl_func, par, x0, h0, f0, xfsp, base, pdir, sdir, 
     return nsub
 end
 
-function vofi_get_limits_4D(impl_func, par, x0, h0, f0, xfsp::XFSP4D, base, pdir, sdir, tdir, qdir)
+function vofi_get_limits_4D(impl_func::F, par, x0, h0, f0, xfsp::XFSP4D, base, pdir, sdir, tdir, qdir) where {F}
     baser = base
     qlen = axis_length(qdir, h0)
     baser[1] = 0.0
@@ -285,7 +285,7 @@ function vofi_check_plane(impl_func, par, x0, h0, xfs_pt, base, pdir, sdir, nsec
     x1 = @MVector zeros(vofi_real, NDIM)
     x2 = @MVector zeros(vofi_real, NDIM)
     fse = @MVector zeros(vofi_real, NSE)
-    xfsl = MinData()
+    xfsl = get_vofi_cache().xfsl_check_plane
     nbt = @MVector zeros(Int, NSE)
     sign_sect = @MMatrix zeros(Int, NSE, NDIM)
     atleast1 = false
@@ -383,9 +383,11 @@ function vofi_check_plane(impl_func, par, x0, h0, xfs_pt, base, pdir, sdir, nsec
     return nsub
 end
 
-function vofi_get_limits_inner_2D(impl_func, par, x0, h0, xfs_pt, base, pdir, sdir, nsect, ndire, nsub_int)
+function vofi_get_limits_inner_2D(impl_func::F, par, x0, h0, xfs_pt, base, pdir, sdir, nsect, ndire, nsub_int) where {F}
     baser = base
-    basei = @MVector zeros(Int, NSEG + 1)  # Use pre-sized stack-allocated array
+    cache = get_vofi_cache()
+    basei = cache.basei_inner2D
+    fill!(basei, 0)
     baser[1] = 0.0
     basei[1] = 1
     nsub = 1
@@ -393,10 +395,10 @@ function vofi_get_limits_inner_2D(impl_func, par, x0, h0, xfs_pt, base, pdir, sd
     for i in 1:NDIM
         hs += sdir[i] * h0[i]
     end
-    x1 = @MVector zeros(vofi_real, NDIM)
-    x2 = @MVector zeros(vofi_real, NDIM)
-    fse = @MVector zeros(vofi_real, NSE)
-    xfsl = MinData()
+    x1 = cache.x1_inner2D
+    x2 = cache.x2_inner2D
+    fse = cache.fse_inner2D
+    xfsl = cache.xfsl_inner2D
     copy!(xfsl, xfs_pt)
 
     for k in 0:1
@@ -449,7 +451,7 @@ function vofi_get_limits_inner_2D(impl_func, par, x0, h0, xfs_pt, base, pdir, sd
     return nsub
 end
 
-function vofi_get_limits_edge_2D(impl_func, par, x0, h0, xfs_pt, base, pdir, sdir, nsub_int)
+function vofi_get_limits_edge_2D(impl_func::F, par, x0, h0, xfs_pt, base, pdir, sdir, nsub_int) where {F}
     baser = base
     basei = @MVector zeros(Int, NSEG + 1)  # Use pre-sized stack-allocated array
     baser[1] = 0.0
@@ -462,7 +464,7 @@ function vofi_get_limits_edge_2D(impl_func, par, x0, h0, xfs_pt, base, pdir, sdi
     x1 = @MVector zeros(vofi_real, NDIM)
     x2 = @MVector zeros(vofi_real, NDIM)
     fse = @MVector zeros(vofi_real, NSE)
-    xfsl = MinData()
+    xfsl = get_vofi_cache().xfsl_edge2D
     copy!(xfsl, xfs_pt)
 
     for k in 0:1

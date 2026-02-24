@@ -6,7 +6,7 @@ as a local normal and bisects along that line to locate the zero of `impl_func`.
 Returns a vector of length `ndim0`; if no sign change is found inside the cell,
 falls back to the cell centre.
 """
-function vofi_interface_centroid(impl_func, par, xin, h0, ndim0; tol=1e-10, max_iter=50)
+function vofi_interface_centroid(impl_func::F, par, xin, h0, ndim0; tol=1e-10, max_iter=50) where {F}
     ndim0 ∈ (1:4) || throw(ArgumentError("ndim0 must be 1,2,3,4"))
     hvec = vofi_real.(collect(h0[1:ndim0]))
     x0 = vofi_real.(collect(xin[1:ndim0]))
