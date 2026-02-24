@@ -1,4 +1,4 @@
-function vofi_get_segment_min(impl_func::F, par, x0, dir, fse, xfs_pt, s0, ifsign) where {F}
+function vofi_get_segment_min(impl_func, par, x0, dir, fse, xfs_pt, s0, ifsign)
     xs = @MVector zeros(vofi_real, NDIM)
     GRIS = 0.5 * (3.0 - sqrt(5.0))
     sign_change = 0
@@ -213,7 +213,7 @@ function vofi_get_segment_min(impl_func::F, par, x0, dir, fse, xfs_pt, s0, ifsig
     return sign_change
 end
 
-function vofi_get_face_min(impl_func::F, par, x0, h0, dir1, dir2, fve, xfs_pt, ipsc) where {F}
+function vofi_get_face_min(impl_func, par, x0, h0, dir1, dir2, fve, xfs_pt, ipsc)
     xs0 = @MVector zeros(vofi_real, NDIM)
     xs1 = @MVector zeros(vofi_real, NDIM)
     x1f = similar(xs0)

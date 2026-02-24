@@ -1,4 +1,4 @@
-function vofi_check_side_consistency(impl_func::F, par, x0, dir, fse, h0) where {F}
+function vofi_check_side_consistency(impl_func, par, x0, dir, fse, h0)
     fs = fse[1] + fse[2]
     consi = fs > 0 ? 1 : fs < 0 ? -1 : 0
     if consi != 0
@@ -22,7 +22,7 @@ function vofi_check_side_consistency(impl_func::F, par, x0, dir, fse, h0) where 
     return consi
 end
 
-function vofi_check_face_consistency(impl_func::F, par, x0, h0, dir1, dir2, fv) where {F}
+function vofi_check_face_consistency(impl_func, par, x0, h0, dir1, dir2, fv)
     ipsc = DirData(0, 0, 0, 0, 0)
     h1 = 0.0
     h2 = 0.0
@@ -89,7 +89,7 @@ function vofi_check_face_consistency(impl_func::F, par, x0, h0, dir1, dir2, fv) 
     return ipsc
 end
 
-function vofi_check_line_consistency(impl_func::F, par, x0, dir, h0, n, xfs::MinData) where {F}
+function vofi_check_line_consistency(impl_func, par, x0, dir, h0, n, xfs::MinData)
     consi = 0
     dh = max(EPS_M * h0, EPS_ROOT)
     xs = similar(x0)
@@ -112,7 +112,7 @@ function vofi_check_line_consistency(impl_func::F, par, x0, dir, h0, n, xfs::Min
     return consi
 end
 
-function vofi_check_edge_consistency(impl_func::F, par, fse, x0, base, dir, h0, nsub) where {F}
+function vofi_check_edge_consistency(impl_func, par, fse, x0, base, dir, h0, nsub)
     xs = similar(x0)
     s0 = @MVector zeros(vofi_real, 4)
     dh = max(EPS_M * h0, EPS_ROOT)

@@ -1,5 +1,5 @@
-function vofi_interface_surface(impl_func::F, par, x0, h0, xt, pdir, sdir, tdir,
-                                xhpn, xhpo, k, nexpt, ipf) where {F}
+function vofi_interface_surface(impl_func, par, x0, h0, xt, pdir, sdir, tdir,
+                                xhpn, xhpo, k, nexpt, ipf)
     xa = @MVector zeros(vofi_real, NDIM)
     xb = @MVector zeros(vofi_real, NDIM)
     xc = @MVector zeros(vofi_real, NDIM)
@@ -152,7 +152,7 @@ function vofi_interface_surface(impl_func::F, par, x0, h0, xt, pdir, sdir, tdir,
     return surfer
 end
 
-function vofi_end_points(impl_func::F, par, x0, h0, pdir, sdir, xhhp) where {F}
+function vofi_end_points(impl_func, par, x0, h0, pdir, sdir, xhhp)
     x20 = @MVector zeros(vofi_real, NDIM)
     x21 = @MVector zeros(vofi_real, NDIM)
     s0 = @MVector zeros(vofi_real, 4)
@@ -213,7 +213,7 @@ function vofi_end_points(impl_func::F, par, x0, h0, pdir, sdir, xhhp) where {F}
     return nothing
 end
 
-function vofi_edge_points(impl_func::F, par, x0, h0, base, pdir, sdir, xhp, npt, nsub, nsect, ndire) where {F}
+function vofi_edge_points(impl_func, par, x0, h0, base, pdir, sdir, xhp, npt, nsub, nsect, ndire)
     x1 = @MVector zeros(vofi_real, NDIM)
     x20 = @MVector zeros(vofi_real, NDIM)
     x21 = @MVector zeros(vofi_real, NDIM)

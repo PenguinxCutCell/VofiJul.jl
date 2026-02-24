@@ -1,11 +1,11 @@
-function vofi_check_boundary_line(impl_func::F, par, x0, h0, f0, xfs_pt, n0) where {F}
+function vofi_check_boundary_line(impl_func, par, x0, h0, f0, xfs_pt, n0)
     nx = @MVector ones(vofi_int, NSE)
     ny = @MVector ones(vofi_int, NSE)
     sidedirx = (1.0, 0.0, 0.0)
     sidediry = (0.0, 1.0, 0.0)
     fse = @MVector zeros(vofi_real, NSE)
     x1 = @MVector zeros(vofi_real, NDIM)
-    xfsl = get_vofi_cache().xfsl_cb1
+    xfsl = MinData()
     check_dir = -1
 
     for i in 0:1
@@ -57,7 +57,7 @@ function vofi_check_boundary_line(impl_func::F, par, x0, h0, f0, xfs_pt, n0) whe
     return check_dir
 end
 
-function vofi_check_boundary_surface(impl_func::F, par, x0, h0, f0, xfs, n0) where {F}
+function vofi_check_boundary_surface(impl_func, par, x0, h0, f0, xfs, n0)
     nx = @MVector ones(vofi_int, NSE)
     ny = @MVector ones(vofi_int, NSE)
     nz = @MVector ones(vofi_int, NSE)
@@ -66,7 +66,7 @@ function vofi_check_boundary_surface(impl_func::F, par, x0, h0, f0, xfs, n0) whe
     sidedirz = (0.0, 0.0, 1.0)
     fve = @MVector zeros(vofi_real, NVER)
     x1 = @MVector zeros(vofi_real, NDIM)
-    xfsl = get_vofi_cache().xfsl_cb2
+    xfsl = MinData()
     check_dir = -1
 
     for i in 0:1
@@ -142,14 +142,14 @@ function vofi_check_boundary_surface(impl_func::F, par, x0, h0, f0, xfs, n0) whe
     return check_dir
 end
 
-function vofi_check_secondary_side(impl_func::F, par, x0, h0, pdir, sdir, f0, xfs_pt, fth) where {F}
+function vofi_check_secondary_side(impl_func, par, x0, h0, pdir, sdir, f0, xfs_pt, fth)
     hs = zero(vofi_real)
     for i in 1:NDIM
         hs += sdir[i] * h0[i]
     end
     x1 = @MVector zeros(vofi_real, NDIM)
     fse = @MVector zeros(vofi_real, NSE)
-    xfsl = get_vofi_cache().xfsl_cb3
+    xfsl = MinData()
 
     for k in 0:1
         fse[1] = f0[k + 1, 1]
@@ -178,11 +178,11 @@ function vofi_check_secondary_side(impl_func::F, par, x0, h0, pdir, sdir, f0, xf
     end
 end
 
-function vofi_check_secter_face(impl_func::F, par, x0, h0, pdir, sdir, tdir, f0, xfs_pt, fth) where {F}
+function vofi_check_secter_face(impl_func, par, x0, h0, pdir, sdir, tdir, f0, xfs_pt, fth)
     xfs_pt.isc .= 0
     x1 = @MVector zeros(vofi_real, NDIM)
     fve = @MVector zeros(vofi_real, NVER)
-    xfsl = get_vofi_cache().xfsl_cb4
+    xfsl = MinData()
 
     for m in 0:1
         np0 = nm0 = 0
@@ -211,7 +211,7 @@ function vofi_check_secter_face(impl_func::F, par, x0, h0, pdir, sdir, tdir, f0,
     return nothing
 end
 
-function vofi_check_tertiary_side(impl_func::F, par, x0, h0, pdir, sdir, tdir, f0, xfs, fth) where {F}
+function vofi_check_tertiary_side(impl_func, par, x0, h0, pdir, sdir, tdir, f0, xfs, fth)
     ht = zero(vofi_real)
     for i in 1:NDIM
         ht += tdir[i] * h0[i]
@@ -237,7 +237,7 @@ function vofi_check_tertiary_side(impl_func::F, par, x0, h0, pdir, sdir, tdir, f
                     end
                     consi = vofi_check_side_consistency(impl_func, par, x1, tdir, fse, ht)
                     if consi != 0
-                        xfsl = get_vofi_cache().xfsl_cb5
+                        xfsl = MinData()
                         f2pos = consi
                         sign_change = vofi_get_segment_min(impl_func, par, x1, tdir, fse, xfsl, ht, f2pos)
                         if sign_change != 0
@@ -255,7 +255,7 @@ function vofi_check_tertiary_side(impl_func::F, par, x0, h0, pdir, sdir, tdir, f
     return nothing
 end
 
-function vofi_check_boundary_hypersurface(impl_func::F, par, x0::Vector{Float64}, h0::Vector{Float64}, f0::Array{Float64, 4}, xfs, n0::Array{Int64, 4}) where {F}
+function vofi_check_boundary_hypersurface(impl_func, par, x0::Vector{Float64}, h0::Vector{Float64}, f0::Array{Float64, 4}, xfs, n0::Array{Int64, 4})
     # For 4D hypercube, we have 8 cubic (3D) faces
     # Each face is defined by fixing one coordinate at 0 or 1
     nx = ones(Int, 2)
