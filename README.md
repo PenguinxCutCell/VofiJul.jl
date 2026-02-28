@@ -3,7 +3,7 @@
 ![CI](https://github.com/PenguinxCutCell/VofiJul.jl/actions/workflows/ci.yml/badge.svg)
 ![Coverage](https://codecov.io/gh/PenguinxCutCell/VofiJul.jl/branch/main/graph/badge.svg)
 
-Julia port of the [VOFI](https://github.com/vofi-dev/vofi) library for initializing volume fractions from an analytic implicit surface `f(x,y,z)=0`. Cells are treated as line segments (1D), rectangles (2D), or cuboids (3D), the reference phase is in the region `f < 0`, and integration follows the original VOFI algorithms.
+Julia port of the [VOFI](https://github.com/vofi-dev/vofi) library for initializing volume fractions from an analytic implicit surface `f(x,y,z)=0`. Cells are treated as line segments (1D), rectangles (2D), cuboids (3D) or hyperectangles (4D), and the reference phase is in the region `f < 0`, and integration follows the original VOFI algorithms.
 
 ## Usage (preview)
 
@@ -31,7 +31,7 @@ cc_1d = vofi_get_cc(line_sdf, nothing,
                     [0, 0], 1)               # ndim=1
 ```
 
-See `test/runtests.jl` for more examples, including Cartesian integrations in 1D, 2D, and 3D.
+See `test/runtests.jl` for more examples, including Cartesian integrations in 1D, 2D, 3D, and 4D.
 
 ## Main routines
 
@@ -41,10 +41,10 @@ See `test/runtests.jl` for more examples, including Cartesian integrations in 1D
 - `xin`: minimum corner of the cell.
 - `h0`: cell edge lengths.
 - `xex`: output buffer for centroid/interface data (length ≥ 4).
-- `nex`: flags to compute centroid/interface (1D point, 2D length, or 3D area); e.g. `[1,0]`.
+- `nex`: flags to compute centroid/interface (1D point, 2D length, 3D area or 4D volume); e.g. `[1,0]`.
 - `npt`: user hints for quadrature points (can be zeros to auto-select).
 - `nvis`: Tecplot export flags (set to zeros to disable).
-- `ndim0`: 1, 2, or 3 for the problem dimension.
+- `ndim0`: 1, 2, 3 or 4 for the problem dimension.
 
 `vofi_get_cell_type(impl_func, par, xin, h0, ndim0)`
 - Same `impl_func`, `par`, `xin`, `h0`, `ndim0` as above.
@@ -55,7 +55,7 @@ See `test/runtests.jl` for more examples, including Cartesian integrations in 1D
 - `par`: user data passed to `impl_func` (or `nothing`).
 - `xin`: minimum corner of the cell.
 - `h0`: cell edge lengths.
-- `ndim0`: 1, 2, or 3 for the problem dimension.
+- `ndim0`: 1, 2, 3 or 4 for the problem dimension.
 - `tol`: tolerance for the 1D root-finder along the estimated normal (default `1e-10`).
 - `max_iter`: maximum iterations for the bisection root-finder (default `50`).
 
@@ -67,6 +67,10 @@ The package is a pure Julia port; add it as a local dev package:
 ```shell
 julia --project -e 'using Pkg; Pkg.develop(path=\".\"); Pkg.test()'
 ```
+
+## Current VOFI 
+
+VOFI library work in 1D, 2D, and 3D, but the original C implementation is not designed for 4D. This Julia port extends the algorithms to support 4D hypercubes, which are relevant for certain applications (e.g. space-time cut cells).
 
 ## Credits
 

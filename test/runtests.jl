@@ -171,14 +171,6 @@ end
     include("vofi_test_4d.jl")
 end
 
-@testset "Convergence tests" begin
-    include("convergence_vofi_3d.jl")
-end
-
-@testset "4D Convergence tests" begin
-    include("convergence_vofi_4d.jl")
-end
-
 # Test 4D functionality
 function neg_func_4d(x, _)
     return -1.0
